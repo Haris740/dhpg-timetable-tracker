@@ -31,4 +31,4 @@ export const PERIOD_TIMINGS: PeriodTiming[] = [
   { number: 8, startTime: "03:15 PM", endTime: "04:05 PM" },
 ];
 
-export const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+export const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
