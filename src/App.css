@@ -1,0 +1,10 @@
+/* App specific styles can go here. Most styling is handled via Tailwind CSS and index.css. */
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
