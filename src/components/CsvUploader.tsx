@@ -14,7 +14,7 @@ export const CsvUploader: React.FC<CsvUploaderProps> = ({ onDataLoaded }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
-    if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
+    if (file.type !== 'text/csv' && file.type !== 'application/vnd.ms-excel' && !file.name.endsWith('.csv')) {
       setError('Please upload a valid CSV file');
       return;
     }
@@ -63,7 +63,7 @@ export const CsvUploader: React.FC<CsvUploaderProps> = ({ onDataLoaded }) => {
           type="file"
           ref={fileInputRef}
           className="hidden"
-          accept=".csv"
+          accept=".csv, text/csv, application/vnd.ms-excel"
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) handleFile(file);
