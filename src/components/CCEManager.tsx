@@ -241,7 +241,7 @@ export const CCEManager: React.FC<CCEManagerProps> = ({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={() => handleEdit(work)}
                           className="p-2.5 rounded-xl text-slate-300 dark:text-slate-700 hover:text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-all"

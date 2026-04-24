@@ -11,6 +11,8 @@ import { PeriodCard } from './components/PeriodCard';
 import { CCEManager } from './components/CCEManager';
 import { NowNextBanner } from './components/NowNextBanner';
 import { NotificationManager } from './components/NotificationManager';
+import { WhatsNewModal } from './components/WhatsNewModal';
+
 import { useNotificationHub } from './hooks/useNotificationHub';
 import { getCurrentPeriod, getNextPeriod, isPastPeriod, isActivePeriod } from './utils/time';
 import { cn } from './utils/cn';
@@ -486,6 +488,7 @@ function App() {
         />
       )}
 
+      <WhatsNewModal />
     </div>
   );
 }
