@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Bell, CheckCircle2, Layout, Zap, Smartphone, ArrowRight, Sparkles } from 'lucide-react';
+import { Bell, CheckCircle2, Layout, Zap, Smartphone, ArrowRight, Sparkles } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 const APP_VERSION = '2.0.0';
