@@ -15,17 +15,22 @@ function urlBase64ToUint8Array(base64String: string) {
   return outputArray;
 }
 
-export function NotificationManager() {
+interface NotificationManagerProps {
+  permission: NotificationPermission;
+  onRequestPermission: () => Promise<NotificationPermission>;
+}
+
+export function NotificationManager({ permission, onRequestPermission }: NotificationManagerProps) {
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    checkSubscription();
+    checkPushSubscription();
   }, []);
 
-  async function checkSubscription() {
+  async function checkPushSubscription() {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
     
     const registration = await navigator.serviceWorker.ready;
@@ -33,12 +38,12 @@ export function NotificationManager() {
     setSubscription(sub);
   }
 
-  async function subscribe() {
+  async function subscribeToPush() {
     try {
       setIsSubscribing(true);
       setError(null);
       
-      const res = await Notification.requestPermission();
+      const res = await onRequestPermission();
       
       if (res !== 'granted') {
           setError('Notification permission denied');
@@ -61,12 +66,6 @@ export function NotificationManager() {
     }
   }
 
-  async function unsubscribe() {
-    if (!subscription) return;
-    await subscription.unsubscribe();
-    setSubscription(null);
-  }
-
   const copyToClipboard = () => {
     if (!subscription) return;
     navigator.clipboard.writeText(JSON.stringify(subscription));
@@ -86,32 +85,32 @@ export function NotificationManager() {
           <div className="flex items-center gap-4">
             <div className={cn(
               "w-12 h-12 rounded-2xl flex items-center justify-center transition-colors",
-              Notification.permission === 'granted' ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+              permission === 'granted' ? "bg-green-100 dark:bg-green-900/30 text-green-600" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
             )}>
               <Bell size={24} />
             </div>
             <div>
               <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Offline Local Alerts</h3>
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                {Notification.permission === 'granted' ? 'Alarms Ready (Stay Backgrounded)' : 'Notify me when class starts'}
+                {permission === 'granted' ? 'Alarms Ready (Stay Backgrounded)' : 'Notify me when class starts'}
               </p>
             </div>
           </div>
           <button
-            onClick={subscribe}
-            disabled={isSubscribing || Notification.permission === 'granted'}
+            onClick={subscribeToPush}
+            disabled={isSubscribing || permission === 'granted'}
             className={cn(
               "px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 disabled:opacity-50",
-              Notification.permission === 'granted'
+              permission === 'granted'
                 ? "bg-green-50 dark:bg-green-900/10 text-green-600 border border-green-100 dark:border-green-900/30" 
                 : "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg"
             )}
           >
-            {Notification.permission === 'granted' ? 'Active' : isSubscribing ? 'Processing...' : 'Enable'}
+            {permission === 'granted' ? 'Active' : isSubscribing ? 'Processing...' : 'Enable'}
           </button>
         </div>
 
-        {Notification.permission === 'granted' && (
+        {permission === 'granted' && (
           <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
             <p className="text-[10px] font-bold text-slate-500 leading-relaxed uppercase tracking-tight">
               <span className="text-green-500 font-black">✓ Offline mode active.</span> Your schedule is synced. To ensure you get alerts, keep Timetable Pro open in your background apps.

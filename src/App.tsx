@@ -28,7 +28,7 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [selectedSubjectForCCE, setSelectedSubjectForCCE] = useState<string | null>(null);
-  const { isActive: isNotificationHubActive } = useNotificationHub(timetable);
+  const { isActive: isNotificationHubActive, permission, requestPermission } = useNotificationHub(timetable);
 
   // CCE Handlers
   const handleAddCCEWork = (subject: string, work: Omit<CCEWork, 'id' | 'createdAt' | 'completed'>) => {
@@ -265,7 +265,10 @@ function App() {
         
         {isNotificationsOpen && (
           <div className="max-w-2xl mx-auto px-4 py-4 animate-in slide-in-from-top-2 duration-300">
-            <NotificationManager />
+            <NotificationManager 
+              permission={permission}
+              onRequestPermission={requestPermission}
+            />
           </div>
         )}
         
