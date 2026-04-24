@@ -1,25 +1,76 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Calendar, Trash2, X, Sun, Moon } from 'lucide-react';
+import { Search, Calendar, Trash2, X, Sun, Moon, Bell } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useCurrentTime } from './hooks/useCurrentTime';
 import { useTheme } from './hooks/useTheme';
 import type { TimetableData } from './types';
 import { PERIOD_TIMINGS, DAYS_OF_WEEK } from './types';
+import { parseCSV, parseCell } from './utils/parser';
 import { CsvUploader } from './components/CsvUploader';
 import { PeriodCard } from './components/PeriodCard';
+import { CCEManager } from './components/CCEManager';
 import { NowNextBanner } from './components/NowNextBanner';
+import { NotificationManager } from './components/NotificationManager';
+import { useNotificationHub } from './hooks/useNotificationHub';
 import { getCurrentPeriod, getNextPeriod, isPastPeriod, isActivePeriod } from './utils/time';
 import { cn } from './utils/cn';
 import { getSubjectColor, getColorClasses } from './utils/colors';
+import type { CCEData, CCEWork } from './types';
 
 function App() {
   const [timetable, setTimetable] = useLocalStorage<TimetableData | null>('timetable', null);
+  const [cceData, setCceData] = useLocalStorage<CCEData>('cce_works', {});
   const { theme, toggleTheme } = useTheme();
   const now = useCurrentTime();
   const currentDay = formatDay(now);
   const [selectedDay, setSelectedDay] = useState<string>(currentDay);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [selectedSubjectForCCE, setSelectedSubjectForCCE] = useState<string | null>(null);
+  const { isActive: isNotificationHubActive } = useNotificationHub(timetable);
+
+  // CCE Handlers
+  const handleAddCCEWork = (subject: string, work: Omit<CCEWork, 'id' | 'createdAt' | 'completed'>) => {
+    const newWork: CCEWork = {
+      ...work,
+      id: Math.random().toString(36).substring(2, 11),
+      createdAt: Date.now(),
+      completed: false
+    };
+    
+    setCceData(prev => ({
+      ...prev,
+      [subject]: [newWork, ...(prev[subject] || [])]
+    }));
+  };
+
+  const handleToggleCCEWork = (subject: string, workId: string) => {
+    setCceData(prev => ({
+      ...prev,
+      [subject]: (prev[subject] || []).map(w => 
+        w.id === workId ? { ...w, completed: !w.completed } : w
+      )
+    }));
+  };
+
+  const handleDeleteCCEWork = (subject: string, workId: string) => {
+    setCceData(prev => ({
+      ...prev,
+      [subject]: (prev[subject] || []).filter(w => w.id !== workId)
+    }));
+  };
+
+  const handleUpdateCCEWork = (subject: string, workId: string, updates: Partial<CCEWork>) => {
+    setCceData(prev => ({
+      ...prev,
+      [subject]: (prev[subject] || []).map(w => 
+        w.id === workId ? { ...w, ...updates } : w
+      )
+    }));
+  };
+
+
 
   // Sync selected day with current day on initial load
   useEffect(() => {
@@ -27,6 +78,61 @@ function App() {
       setSelectedDay(currentDay);
     }
   }, [currentDay]);
+
+  // Migration: Re-parse existing data with new logic if needed
+  useEffect(() => {
+    if (!timetable) return;
+    
+    let needsUpdate = false;
+    const updatedTimetable = JSON.parse(JSON.stringify(timetable)) as TimetableData;
+    
+    Object.entries(updatedTimetable).forEach(([day, periods]) => {
+      Object.entries(periods).forEach(([pNum, info]) => {
+        // If the subject field contains ( or @, it was likely not parsed correctly before
+        // and the whole string was put into the subject field.
+        if (info.subject.includes('(') || info.subject.includes('@')) {
+          const reParsed = parseCell(info.subject);
+          if (reParsed && (reParsed.teacher || reParsed.classroom)) {
+            updatedTimetable[day][parseInt(pNum) as any] = {
+              ...info,
+              ...reParsed
+            };
+            needsUpdate = true;
+          }
+        }
+      });
+    });
+    
+    if (needsUpdate) {
+      setTimetable(updatedTimetable);
+    }
+
+    // Migration for CCE works: Add default type if missing
+    if (cceData) {
+      let cceNeedsUpdate = false;
+      const updatedCceData = JSON.parse(JSON.stringify(cceData)) as CCEData;
+      
+      Object.entries(updatedCceData).forEach(([subject, works]) => {
+        works.forEach((work: any) => {
+          if (!work.type) {
+            work.type = 'assignment';
+            cceNeedsUpdate = true;
+          }
+          if (work.title && !work.topic) {
+            work.topic = work.title;
+            delete work.title;
+            cceNeedsUpdate = true;
+          }
+        });
+      });
+      
+      if (cceNeedsUpdate) {
+        setCceData(updatedCceData);
+      }
+    }
+  }, []); // Run only once on mount
+
+
 
   function formatDay(date: Date): string {
     return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date);
@@ -46,36 +152,7 @@ function App() {
     return { timing: period, info };
   }, [now, timetable, currentDay]);
 
-  // Notifications logic
-  useEffect(() => {
-    if (!timetable || !('Notification' in window)) return;
-
-    if (Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-
-    // Schedule next notification
-    if (nextPeriodInfo?.info) {
-      const nextTime = new Date();
-      const [h, m] = nextPeriodInfo.timing.startTime.split(':');
-      const isPM = nextPeriodInfo.timing.startTime.endsWith('PM');
-      let hours = parseInt(h);
-      if (isPM && hours !== 12) hours += 12;
-      if (!isPM && hours === 12) hours = 0;
-      nextTime.setHours(hours, parseInt(m), 0, 0);
-
-      const diff = nextTime.getTime() - new Date().getTime();
-      if (diff > 0) {
-        const timer = setTimeout(() => {
-          new Notification(`Class Starting: ${nextPeriodInfo.info?.subject}`, {
-            body: `Room ${nextPeriodInfo.info?.classroom || 'N/A'} with ${nextPeriodInfo.info?.teacher || 'N/A'}`,
-            icon: '/pwa-192x192.png'
-          });
-        }, diff);
-        return () => clearTimeout(timer);
-      }
-    }
-  }, [nextPeriodInfo, timetable]);
+  // Notification state synchronization is handled by the NotificationManager component
 
   const searchResults = useMemo(() => {
     if (!searchQuery.trim() || !timetable) return [];
@@ -160,6 +237,20 @@ function App() {
               <Search size={20} strokeWidth={2.5} />
             </button>
             <button 
+              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              className={cn(
+                "p-3 rounded-2xl border transition-all active:scale-95 relative",
+                isNotificationsOpen 
+                  ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white" 
+                  : "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800"
+              )}
+            >
+              <Bell size={20} strokeWidth={2.5} />
+              {isNotificationHubActive && (
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-slate-950 animate-pulse" />
+              )}
+            </button>
+            <button 
               onClick={() => {
                 if (confirm('Erase all timetable data?')) setTimetable(null);
               }}
@@ -171,6 +262,12 @@ function App() {
         </div>
         
         <NowNextBanner current={currentPeriodInfo} next={nextPeriodInfo} />
+        
+        {isNotificationsOpen && (
+          <div className="max-w-2xl mx-auto px-4 py-4 animate-in slide-in-from-top-2 duration-300">
+            <NotificationManager />
+          </div>
+        )}
         
         {/* Day Selector */}
         <div className="max-w-2xl mx-auto px-4 py-4 flex gap-2 overflow-x-auto no-scrollbar scroll-smooth">
@@ -201,6 +298,12 @@ function App() {
               info={selectedDayData[timing.number]}
               isActive={selectedDay === currentDay && isActivePeriod(timing, now)}
               isPast={selectedDay === currentDay && isPastPeriod(timing, now)}
+              onOpenCCE={setSelectedSubjectForCCE}
+              pendingWorksCount={
+                selectedDayData[timing.number] 
+                  ? (cceData[selectedDayData[timing.number]!.subject] || []).filter(w => !w.completed).length 
+                  : 0
+              }
             />
           ))}
         </div>
@@ -279,6 +382,19 @@ function App() {
           </div>
         </div>
       )}
+      {/* CCE Modal */}
+      {selectedSubjectForCCE && (
+        <CCEManager
+          subject={selectedSubjectForCCE}
+          works={cceData[selectedSubjectForCCE] || []}
+          onClose={() => setSelectedSubjectForCCE(null)}
+          onAddWork={handleAddCCEWork}
+          onToggleWork={handleToggleCCEWork}
+          onDeleteWork={handleDeleteCCEWork}
+          onUpdateWork={handleUpdateCCEWork}
+        />
+      )}
+
     </div>
   );
 }

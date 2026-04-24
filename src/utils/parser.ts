@@ -11,22 +11,33 @@ export const parseCell = (cell: string): SubjectInfo | undefined => {
 
   const trimmedCell = cell.trim();
   
-  // Regex to extract different components
-  // Group 1: Subject (everything until ( or @)
-  // Group 2: Teacher (inside parentheses)
-  // Group 3: Classroom (after @)
-  const regex = /^([^(@]+)(?:\(([^)]+)\))?\s*(?:@\s*(.*))?$/;
-  const match = trimmedCell.match(regex);
-
-  if (!match) {
-    return { subject: trimmedCell };
+  // Split by @ to get classroom
+  let mainPart = trimmedCell;
+  let classroom = undefined;
+  
+  const atIndex = trimmedCell.lastIndexOf('@');
+  if (atIndex !== -1) {
+    mainPart = trimmedCell.substring(0, atIndex).trim();
+    classroom = trimmedCell.substring(atIndex + 1).trim();
   }
 
-  return {
-    subject: match[1]?.trim() || trimmedCell,
-    teacher: match[2]?.trim(),
-    classroom: match[3]?.trim(),
-  };
+  // Find all parenthesized groups in mainPart
+  // We want to find the LAST (Group) as the teacher
+  const matches = [...mainPart.matchAll(/\(([^)]+)\)/g)];
+  
+  if (matches.length > 0) {
+    const lastMatch = matches[matches.length - 1];
+    const teacher = lastMatch[1].trim();
+    const subject = mainPart.substring(0, lastMatch.index).trim();
+    
+    return { 
+      subject: subject || mainPart, // fallback if subject is empty
+      teacher, 
+      classroom 
+    };
+  }
+
+  return { subject: mainPart, classroom };
 };
 
 /**

@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -22,7 +22,8 @@
     "react-dom": "^19.0.0",
     "tailwind-merge": "^3.0.0",
     "tailwindcss": "^4.0.0",
-    "vite-plugin-pwa": "^0.21.1"
+    "vite-plugin-pwa": "^0.21.1",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
@@ -36,6 +37,7 @@
     "globals": "^15.0.0",
     "typescript": "^5.4.5",
     "typescript-eslint": "^8.0.0",
-    "vite": "^6.0.0"
+    "vite": "^6.0.0",
+    "vite-plugin-mkcert": "^2.0.0"
   }
 }

@@ -1,18 +1,26 @@
 import React from 'react';
-import { Clock, User, Landmark } from 'lucide-react';
+import { Clock, User, Landmark, ClipboardList } from 'lucide-react';
 import type { SubjectInfo, PeriodTiming } from '../types';
 import { cn } from '../utils/cn';
+import { getSubjectColor, getColorClasses } from '../utils/colors';
 
 interface PeriodCardProps {
   timing: PeriodTiming;
   info?: SubjectInfo;
   isActive: boolean;
   isPast: boolean;
+  onOpenCCE: (subject: string) => void;
+  pendingWorksCount?: number;
 }
 
-import { getSubjectColor, getColorClasses } from '../utils/colors';
-
-export const PeriodCard: React.FC<PeriodCardProps> = ({ timing, info, isActive, isPast }) => {
+export const PeriodCard: React.FC<PeriodCardProps> = ({ 
+  timing, 
+  info, 
+  isActive, 
+  isPast,
+  onOpenCCE,
+  pendingWorksCount = 0
+}) => {
   const subjectColor = info ? getSubjectColor(info.subject) : 'blue';
   const colors = getColorClasses(subjectColor);
 
@@ -37,7 +45,7 @@ export const PeriodCard: React.FC<PeriodCardProps> = ({ timing, info, isActive, 
 
   return (
     <div className={cn(
-      "relative p-6 rounded-[2rem] group overflow-hidden transition-all duration-500 border shadow-md",
+      "relative p-6 rounded-[2rem] group overflow-hidden transition-all duration-500 border shadow-md flex flex-col",
       colors.bg,
       colors.border,
       isActive && cn("animate-pulse-glow scale-[1.03] shadow-2xl z-10", colors.ring),
@@ -84,28 +92,54 @@ export const PeriodCard: React.FC<PeriodCardProps> = ({ timing, info, isActive, 
         {info.subject}
       </h3>
 
+      <div className="flex-1" />
+
       <div className={cn(
-        "flex flex-wrap gap-2.5 pt-5 border-t transition-colors",
+        "flex flex-wrap items-center justify-between gap-4 pt-5 border-t transition-colors",
         colors.accent === 'bg-white' ? "border-white/20" : "border-slate-900/10"
       )}>
-        {info.teacher && (
-          <div className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-bold shadow-sm backdrop-blur-sm",
-            colors.accent === 'bg-white' ? "bg-white/10 text-white" : "bg-black/5 text-slate-900"
-          )}>
-            <User size={14} className="opacity-70" />
-            <span>{info.teacher}</span>
-          </div>
-        )}
-        {info.classroom && (
-          <div className={cn(
-            "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-black shadow-sm backdrop-blur-sm",
-            colors.accent === 'bg-white' ? "bg-white/20 text-white" : "bg-black/10 text-slate-900"
-          )}>
-            <Landmark size={14} className="opacity-70" />
-            <span>{info.classroom}</span>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2.5">
+          {info.teacher && (
+            <div className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-bold shadow-sm backdrop-blur-sm",
+              colors.accent === 'bg-white' ? "bg-white/10 text-white" : "bg-black/5 text-slate-900"
+            )}>
+              <User size={14} className="opacity-70" />
+              <span>{info.teacher}</span>
+            </div>
+          )}
+          {info.classroom && (
+            <div className={cn(
+              "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[12px] font-black shadow-sm backdrop-blur-sm",
+              colors.accent === 'bg-white' ? "bg-white/20 text-white" : "bg-black/10 text-slate-900"
+            )}>
+              <Landmark size={14} className="opacity-70" />
+              <span>{info.classroom}</span>
+            </div>
+          )}
+        </div>
+
+        <button 
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenCCE(info.subject);
+          }}
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm relative group/btn",
+            colors.accent === 'bg-white' ? "bg-white text-slate-900 hover:bg-slate-100" : "bg-slate-900 text-white hover:bg-slate-800"
+          )}
+        >
+          <ClipboardList size={16} strokeWidth={2.5} />
+          <span>CCE Works</span>
+          {pendingWorksCount > 0 && (
+            <span className={cn(
+              "absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shadow-lg border-2 animate-in zoom-in duration-300",
+              colors.accent === 'bg-white' ? "bg-red-500 text-white border-white" : "bg-red-500 text-white border-slate-900"
+            )}>
+              {pendingWorksCount}
+            </span>
+          )}
+        </button>
       </div>
     </div>
   );
