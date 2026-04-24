@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Plus, Calendar, CheckCircle2, Circle, Trash2, Clock, AlertCircle, BookOpen, Presentation, Video, PenTool, Search, Layout, FileText, Pencil } from 'lucide-react';
-import { format, formatDistanceToNow, isPast, parseISO } from 'date-fns';
-import type { CCEWork, CCEData, CCEWorkType } from '../types';
+import { formatDistanceToNow, isPast, parseISO } from 'date-fns';
+import type { CCEWork, CCEWorkType } from '../types';
 import { cn } from '../utils/cn';
 
 interface CCEManagerProps {

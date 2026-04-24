@@ -5,7 +5,7 @@ import { useCurrentTime } from './hooks/useCurrentTime';
 import { useTheme } from './hooks/useTheme';
 import type { TimetableData } from './types';
 import { PERIOD_TIMINGS, DAYS_OF_WEEK } from './types';
-import { parseCSV, parseCell } from './utils/parser';
+import { parseCell } from './utils/parser';
 import { CsvUploader } from './components/CsvUploader';
 import { PeriodCard } from './components/PeriodCard';
 import { CCEManager } from './components/CCEManager';
@@ -112,7 +112,7 @@ function App() {
       let cceNeedsUpdate = false;
       const updatedCceData = JSON.parse(JSON.stringify(cceData)) as CCEData;
       
-      Object.entries(updatedCceData).forEach(([subject, works]) => {
+      Object.entries(updatedCceData).forEach(([_subject, works]) => {
         works.forEach((work: any) => {
           if (!work.type) {
             work.type = 'assignment';
