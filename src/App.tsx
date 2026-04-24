@@ -197,6 +197,60 @@ function App() {
   }, [searchQuery, timetable]);
 
   if (!timetable) {
+    const installSection = (
+      <div className="p-8 rounded-[2.5rem] bg-slate-900 dark:bg-slate-800 text-white space-y-4">
+        <h2 className="text-xl font-black flex items-center gap-3">
+          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white text-slate-900 text-xs">
+            {deferredPrompt ? '1' : '2'}
+          </span>
+          Install App
+        </h2>
+        <p className="text-xs font-bold text-slate-400 leading-relaxed uppercase tracking-wide">
+          Install Timetable Pro for offline access and the best scheduling experience.
+        </p>
+        <button 
+          onClick={handleInstallClick}
+          disabled={!deferredPrompt}
+          className={cn(
+            "w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95",
+            deferredPrompt 
+              ? "bg-white text-slate-900 shadow-xl" 
+              : "bg-slate-800 text-slate-600 cursor-not-allowed"
+          )}
+        >
+          {deferredPrompt ? 'Install Timetable Pro' : 'Already Installed'}
+        </button>
+      </div>
+    );
+
+    const setupSection = (
+      <div className="p-8 rounded-[2.5rem] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+        <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary-500 text-white text-xs">
+            {deferredPrompt ? '2' : '1'}
+          </span>
+          Get Started
+        </h2>
+        <CsvUploader onDataLoaded={(data) => setTimetable(data)} />
+        
+        <div className="pt-4 space-y-4">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Features</h3>
+          <ul className="space-y-3">
+            {[
+              { icon: Search, text: "Search subjects & rooms" },
+              { icon: Bell, text: "Smart class notifications" },
+              { icon: CheckCircle2, text: "Track assignments (CCE)" }
+            ].map((item, i) => (
+              <li key={i} className="flex items-center gap-3 text-sm font-bold text-slate-600 dark:text-slate-400">
+                <item.icon size={16} className="text-primary-500" />
+                {item.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    );
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 space-y-12 max-w-lg mx-auto py-16">
         <div className="text-center space-y-4">
@@ -212,51 +266,17 @@ function App() {
         </div>
         
         <div className="w-full space-y-6">
-          <div className="p-8 rounded-[2.5rem] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
-            <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary-500 text-white text-xs">1</span>
-              Get Started
-            </h2>
-            <CsvUploader onDataLoaded={(data) => setTimetable(data)} />
-            
-            <div className="pt-4 space-y-4">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Instructions</h3>
-              <ul className="space-y-3">
-                {[
-                  { icon: Search, text: "Upload your CSV timetable file" },
-                  { icon: Bell, text: "Enable notifications for class alerts" },
-                  { icon: CheckCircle2, text: "Track assignments with CCE Works" }
-                ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-sm font-bold text-slate-600 dark:text-slate-400">
-                    <item.icon size={16} className="text-primary-500" />
-                    {item.text}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="p-8 rounded-[2.5rem] bg-slate-900 dark:bg-slate-800 text-white space-y-4">
-            <h2 className="text-xl font-black flex items-center gap-3">
-              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white text-slate-900 text-xs">2</span>
-              Install App
-            </h2>
-            <p className="text-xs font-bold text-slate-400 leading-relaxed uppercase tracking-wide">
-              Install Timetable Pro to your home screen for offline access and better notifications.
-            </p>
-            <button 
-              onClick={handleInstallClick}
-              disabled={!deferredPrompt}
-              className={cn(
-                "w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95",
-                deferredPrompt 
-                  ? "bg-white text-slate-900 shadow-xl" 
-                  : "bg-slate-800 text-slate-600 cursor-not-allowed"
-              )}
-            >
-              {deferredPrompt ? 'Install Timetable Pro' : 'Already Installed / Not Supported'}
-            </button>
-          </div>
+          {deferredPrompt ? (
+            <>
+              {installSection}
+              {setupSection}
+            </>
+          ) : (
+            <>
+              {setupSection}
+              {installSection}
+            </>
+          )}
         </div>
 
         <div className="text-center">
@@ -267,6 +287,7 @@ function App() {
       </div>
     );
   }
+
 
 
   const selectedDayData = timetable[selectedDay] || {};
