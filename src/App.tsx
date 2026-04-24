@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Calendar, Trash2, X, Sun, Moon, Bell } from 'lucide-react';
+import { Search, Calendar, Trash2, X, Sun, Moon, Bell, CheckCircle2 } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useCurrentTime } from './hooks/useCurrentTime';
 import { useTheme } from './hooks/useTheme';
@@ -28,6 +28,8 @@ function App() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [selectedSubjectForCCE, setSelectedSubjectForCCE] = useState<string | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
   const { isActive: isNotificationHubActive, permission, requestPermission } = useNotificationHub(timetable);
 
   // CCE Handlers
@@ -78,6 +80,26 @@ function App() {
       setSelectedDay(currentDay);
     }
   }, [currentDay]);
+
+  // Handle PWA Install Prompt
+  useEffect(() => {
+    const handler = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
+
 
   // Migration: Re-parse existing data with new logic if needed
   useEffect(() => {
@@ -176,31 +198,76 @@ function App() {
 
   if (!timetable) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-6 space-y-8 max-w-lg mx-auto">
-        <div className="text-center space-y-2">
-          <div className="inline-block p-4 rounded-3xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xl mb-4">
-            <Calendar size={48} />
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 space-y-12 max-w-lg mx-auto py-16">
+        <div className="text-center space-y-4">
+          <div className="inline-block p-5 rounded-[2rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xl mb-2">
+            <Calendar size={56} strokeWidth={2.5} />
           </div>
-          <h1 className="text-4xl font-black tracking-tighter text-slate-900 dark:text-white uppercase italic">
+          <h1 className="text-5xl font-black tracking-tighter text-slate-900 dark:text-white uppercase italic leading-none">
             Timetable Pro
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 font-bold">
-            Built for precision. Created by mmchessman.
+          <p className="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-widest text-xs">
+            Precision Schedule Management
           </p>
         </div>
         
-        <CsvUploader onDataLoaded={(data) => setTimetable(data)} />
-        
-        <div className="p-6 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-sm">
-          <p className="font-black text-slate-900 dark:text-white mb-2 uppercase tracking-widest">CSV Format:</p>
-          <p className="text-slate-500 dark:text-slate-400 font-bold leading-relaxed">
-            Day, Period 1, ... Period 8<br/>
-            Cell: Subject (Teacher) @ Room
+        <div className="w-full space-y-6">
+          <div className="p-8 rounded-[2.5rem] bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 shadow-xl space-y-6">
+            <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-3">
+              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary-500 text-white text-xs">1</span>
+              Get Started
+            </h2>
+            <CsvUploader onDataLoaded={(data) => setTimetable(data)} />
+            
+            <div className="pt-4 space-y-4">
+              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Instructions</h3>
+              <ul className="space-y-3">
+                {[
+                  { icon: Search, text: "Upload your CSV timetable file" },
+                  { icon: Bell, text: "Enable notifications for class alerts" },
+                  { icon: CheckCircle2, text: "Track assignments with CCE Works" }
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-3 text-sm font-bold text-slate-600 dark:text-slate-400">
+                    <item.icon size={16} className="text-primary-500" />
+                    {item.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          <div className="p-8 rounded-[2.5rem] bg-slate-900 dark:bg-slate-800 text-white space-y-4">
+            <h2 className="text-xl font-black flex items-center gap-3">
+              <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white text-slate-900 text-xs">2</span>
+              Install App
+            </h2>
+            <p className="text-xs font-bold text-slate-400 leading-relaxed uppercase tracking-wide">
+              Install Timetable Pro to your home screen for offline access and better notifications.
+            </p>
+            <button 
+              onClick={handleInstallClick}
+              disabled={!deferredPrompt}
+              className={cn(
+                "w-full py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95",
+                deferredPrompt 
+                  ? "bg-white text-slate-900 shadow-xl" 
+                  : "bg-slate-800 text-slate-600 cursor-not-allowed"
+              )}
+            >
+              {deferredPrompt ? 'Install Timetable Pro' : 'Already Installed / Not Supported'}
+            </button>
+          </div>
+        </div>
+
+        <div className="text-center">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+            Developed by mmchessman
           </p>
         </div>
       </div>
     );
   }
+
 
   const selectedDayData = timetable[selectedDay] || {};
 
