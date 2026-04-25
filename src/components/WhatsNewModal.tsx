@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, CheckCircle2, Layout, Zap, Smartphone, ArrowRight, Sparkles } from 'lucide-react';
+import { Bell, CheckCircle2, Layout, Zap, ArrowRight, Sparkles } from 'lucide-react';
 import { cn } from '../utils/cn';
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.1.0';
 
 export const WhatsNewModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,28 +24,28 @@ export const WhatsNewModal: React.FC = () => {
 
   const features = [
     {
+      icon: Zap,
+      title: "Personal Task Alerts",
+      description: "Add custom tasks with an alerting amber design that stand out in your schedule.",
+      color: "bg-amber-500"
+    },
+    {
       icon: Bell,
-      title: "Smart Notifications",
-      description: "Get alerted before every class. Enable them in the notifications panel.",
+      title: "Task Notifications",
+      description: "Get instantly notified when your personal tasks are about to start.",
       color: "bg-blue-500"
     },
     {
-      icon: CheckCircle2,
-      title: "CCE Works Tracking",
-      description: "Manage assignments, PPTs, and projects for each subject easily.",
-      color: "bg-emerald-500"
-    },
-    {
       icon: Layout,
-      title: "Now & Next Banner",
-      description: "Quickly see your current period and what's coming up next.",
+      title: "Unified Schedule",
+      description: "Tasks are now perfectly sorted between your class periods chronologically.",
       color: "bg-purple-500"
     },
     {
-      icon: Smartphone,
-      title: "PWA Experience",
-      description: "Install to your home screen for lightning-fast offline access.",
-      color: "bg-orange-500"
+      icon: CheckCircle2,
+      title: "Conflict Detection",
+      description: "Automatic warnings if your personal tasks overlap with existing class periods.",
+      color: "bg-red-500"
     }
   ];
 
@@ -63,7 +63,7 @@ export const WhatsNewModal: React.FC = () => {
           <div className="relative z-10 space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/20 text-primary-400 text-[10px] font-black uppercase tracking-widest mb-2 border border-primary-500/30">
               <Sparkles size={12} />
-              Version 2.0 is here
+              Version 2.1 is here
             </div>
             <h2 className="text-3xl font-black text-white dark:text-slate-900 leading-tight uppercase italic tracking-tighter">
               What's New in <br/> Timetable Pro
@@ -100,7 +100,7 @@ export const WhatsNewModal: React.FC = () => {
               Pro Tip
             </h5>
             <p className="text-xs font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
-              Tap on any subject in your timetable to open the <span className="text-primary-500">CCE Manager</span> and track your academic works!
+              Use the <span className="text-primary-500">View All</span> button in the Personal Tasks section to manage your full schedule in one place!
             </p>
           </div>
         </div>

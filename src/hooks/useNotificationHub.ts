@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { PERIOD_TIMINGS } from '../types';
-import type { TimetableData } from '../types';
-import { timeStringToDate } from '../utils/time';
+import type { TimetableData, TaskData } from '../types';
+import { timeStringToDate, formatISODate } from '../utils/time';
 
-export function useNotificationHub(timetable: TimetableData | null) {
+export function useNotificationHub(timetable: TimetableData | null, taskData: TaskData = {}) {
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
@@ -17,7 +17,7 @@ export function useNotificationHub(timetable: TimetableData | null) {
   };
 
   useEffect(() => {
-    if (!timetable || typeof Notification === 'undefined' || permission !== 'granted') {
+    if ((!timetable && Object.keys(taskData).length === 0) || typeof Notification === 'undefined' || permission !== 'granted') {
       clearAllTimers();
       return;
     }
@@ -27,32 +27,43 @@ export function useNotificationHub(timetable: TimetableData | null) {
       
       const now = new Date();
       const currentDay = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(now);
-      const todaysSchedule = timetable[currentDay];
+      const todaysSchedule = timetable?.[currentDay];
+      const todaysTasks = taskData[formatISODate(now)] || [];
       
       console.log(`[NotificationHub] Checking schedule for ${currentDay}... permission: ${permission}`);
       
-      if (!todaysSchedule) {
-        console.log(`[NotificationHub] No schedule found for ${currentDay}`);
-        return;
+      // 1. Schedule Class Periods
+      if (todaysSchedule) {
+        Object.entries(todaysSchedule).forEach(([periodNum, info]) => {
+          const timing = PERIOD_TIMINGS.find(t => t.number === parseInt(periodNum));
+          if (!timing || !info) return;
+
+          const startTime = timeStringToDate(timing.startTime, now);
+          const diff = startTime.getTime() - now.getTime();
+
+          if (diff > 0) {
+            console.log(`[NotificationHub] Scheduling Class "${info.subject}" in ${Math.round(diff/1000)}s`);
+            const timer = window.setTimeout(() => {
+              showNotification(`Class: ${info.subject}`, `Class starting in ${info.classroom || 'your room'} with ${info.teacher || 'your teacher'}.`, `class-${info.subject}`);
+            }, diff);
+            timersRef.current.push(timer);
+          }
+        });
       }
 
-      Object.entries(todaysSchedule).forEach(([periodNum, info]) => {
-        const timing = PERIOD_TIMINGS.find(t => t.number === parseInt(periodNum));
-        if (!timing || !info) return;
+      // 2. Schedule Personal Tasks
+      todaysTasks.forEach(task => {
+        if (task.completed) return;
 
-        const startTime = timeStringToDate(timing.startTime, now);
+        const startTime = timeStringToDate(task.startTime, now);
         const diff = startTime.getTime() - now.getTime();
 
-        // If it's in the future (within the next 24 hours)
         if (diff > 0) {
-          console.log(`[NotificationHub] Scheduling "${info.subject}" in ${Math.round(diff/1000)}s`);
+          console.log(`[NotificationHub] Scheduling Task "${task.title}" in ${Math.round(diff/1000)}s`);
           const timer = window.setTimeout(() => {
-            console.log(`[NotificationHub] Triggering notification for ${info.subject}`);
-            showNotification(info.subject, `Class starting in ${info.classroom || 'your room'} with ${info.teacher || 'your teacher'}.`);
+            showNotification(`Task Alert: ${task.title}`, `Your task "${task.title}" is starting now.`, `task-${task.id}`);
           }, diff);
           timersRef.current.push(timer);
-        } else {
-          console.log(`[NotificationHub] Skipping past/current period: ${info.subject} (${timing.startTime})`);
         }
       });
     };
@@ -84,24 +95,24 @@ export function useNotificationHub(timetable: TimetableData | null) {
     timersRef.current = [];
   }
 
-  function showNotification(title: string, body: string) {
+  function showNotification(title: string, body: string, tag: string) {
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       const options = {
         body,
         icon: '/pwa-192x192.png',
         badge: '/favicon.ico',
         vibrate: [200, 100, 200],
-        tag: `period-start-${title}`,
+        tag,
         renotify: true,
         requireInteraction: true
       };
 
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.ready.then(registration => {
-          registration.showNotification(`Class Starting: ${title}`, options);
+          registration.showNotification(title, options);
         });
       } else {
-        new Notification(`Class Starting: ${title}`, options);
+        new Notification(title, options);
       }
     }
   }

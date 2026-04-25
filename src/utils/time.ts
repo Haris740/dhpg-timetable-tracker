@@ -1,6 +1,6 @@
-import { parse, isWithinInterval, isAfter } from 'date-fns';
-import type { PeriodTiming } from '../types';
-import { PERIOD_TIMINGS } from '../types';
+import { parse, isWithinInterval, isAfter, format, addDays, areIntervalsOverlapping, getDay } from 'date-fns';
+import type { PeriodTiming, DayTimetable } from '../types';
+import { PERIOD_TIMINGS, DAYS_OF_WEEK } from '../types';
 
 /**
  * Converts "HH:mm AM/PM" string to a Date object with today's date.
@@ -53,4 +53,84 @@ export const isActivePeriod = (period: PeriodTiming, now: Date = new Date()): bo
   const start = timeStringToDate(period.startTime, now);
   const end = timeStringToDate(period.endTime, now);
   return isWithinInterval(now, { start, end });
+};
+
+/**
+ * Converts a time string to minutes since midnight for comparison.
+ */
+export const getMinutesSinceMidnight = (timeStr: string): number => {
+  if (!timeStr) return 0;
+  try {
+    const date = parse(timeStr, timeStr.includes('M') ? 'hh:mm a' : 'HH:mm', new Date());
+    return date.getHours() * 60 + date.getMinutes();
+  } catch (e) {
+    console.error("Failed to parse time:", timeStr);
+    return 0;
+  }
+};
+
+/**
+ * Formats a date to ISO string (YYYY-MM-DD)
+ */
+export const formatISODate = (date: Date): string => {
+  return format(date, 'yyyy-MM-dd');
+};
+
+/**
+ * Gets the date of the next occurring day (e.g., "Monday") starting from a reference date.
+ * If referenceDate is that day, it returns referenceDate.
+ */
+export const getDateOfNextDay = (dayName: string, referenceDate: Date = new Date()): Date => {
+  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const targetDay = days.indexOf(dayName);
+  const currentDay = referenceDate.getDay();
+  
+  let daysToAdd = targetDay - currentDay;
+  if (daysToAdd < 0) daysToAdd += 7;
+  
+  return addDays(referenceDate, daysToAdd);
+};
+
+/**
+ * Checks if two time intervals overlap.
+ * Format: "HH:mm" or "hh:mm a"
+ */
+export const areTimesOverlapping = (
+  start1: string, end1: string, 
+  start2: string, end2: string,
+  referenceDate: Date = new Date()
+): boolean => {
+  const s1 = parse(start1, start1.includes('M') ? 'hh:mm a' : 'HH:mm', referenceDate);
+  const e1 = parse(end1, end1.includes('M') ? 'hh:mm a' : 'HH:mm', referenceDate);
+  const s2 = parse(start2, start2.includes('M') ? 'hh:mm a' : 'HH:mm', referenceDate);
+  const e2 = parse(end2, end2.includes('M') ? 'hh:mm a' : 'HH:mm', referenceDate);
+
+  return areIntervalsOverlapping(
+    { start: s1, end: e1 },
+    { start: s2, end: e2 }
+  );
+};
+
+/**
+ * Gets the day name (e.g., "Monday") from a date.
+ */
+export const getDayName = (date: Date | string): string => {
+  const d = typeof date === 'string' ? parse(date, 'yyyy-MM-dd', new Date()) : date;
+  return DAYS_OF_WEEK[getDay(d)];
+};
+
+/**
+ * Finds all periods that conflict with a given time range on a specific day.
+ * Only counts periods that have an actual subject (not free periods).
+ */
+export const getScheduleConflicts = (
+  startTime: string, 
+  endTime: string, 
+  dayTimetable: DayTimetable,
+  referenceDate: Date = new Date()
+): PeriodTiming[] => {
+  return PERIOD_TIMINGS.filter(period => 
+    dayTimetable[period.number] && // Only conflict if it's NOT a free period
+    areTimesOverlapping(startTime, endTime, period.startTime, period.endTime, referenceDate)
+  );
 };

@@ -21,6 +21,10 @@ export const parseCell = (cell: string): SubjectInfo | undefined => {
     classroom = trimmedCell.substring(atIndex + 1).trim();
   }
 
+  const result: SubjectInfo = { subject: mainPart };
+  
+  if (classroom) result.classroom = classroom;
+
   // Find all parenthesized groups in mainPart
   // We want to find the LAST (Group) as the teacher
   const matches = [...mainPart.matchAll(/\(([^)]+)\)/g)];
@@ -30,14 +34,11 @@ export const parseCell = (cell: string): SubjectInfo | undefined => {
     const teacher = lastMatch[1].trim();
     const subject = mainPart.substring(0, lastMatch.index).trim();
     
-    return { 
-      subject: subject || mainPart, // fallback if subject is empty
-      teacher, 
-      classroom 
-    };
+    result.subject = subject || mainPart;
+    result.teacher = teacher;
   }
 
-  return { subject: mainPart, classroom };
+  return result;
 };
 
 /**

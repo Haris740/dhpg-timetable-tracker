@@ -14,14 +14,27 @@ import { NotificationManager } from './components/NotificationManager';
 import { WhatsNewModal } from './components/WhatsNewModal';
 
 import { useNotificationHub } from './hooks/useNotificationHub';
-import { getCurrentPeriod, getNextPeriod, isPastPeriod, isActivePeriod } from './utils/time';
 import { cn } from './utils/cn';
 import { getSubjectColor, getColorClasses } from './utils/colors';
-import type { CCEData, CCEWork } from './types';
+import type { CCEData, CCEWork, TaskData, PersonalTask } from './types';
+import { TaskManager } from './components/TaskManager';
+import { AllTasksModal } from './components/AllTasksModal';
+import { TaskCard } from './components/TaskCard';
+import { 
+  getCurrentPeriod, 
+  getNextPeriod, 
+  isPastPeriod, 
+  isActivePeriod, 
+  formatISODate, 
+  getDateOfNextDay, 
+  areTimesOverlapping, 
+  getMinutesSinceMidnight 
+} from './utils/time';
 
 function App() {
   const [timetable, setTimetable] = useLocalStorage<TimetableData | null>('timetable', null);
   const [cceData, setCceData] = useLocalStorage<CCEData>('cce_works', {});
+  const [taskData, setTaskData] = useLocalStorage<TaskData>('personal_tasks', {});
   const { theme, toggleTheme } = useTheme();
   const now = useCurrentTime();
   const currentDay = formatDay(now);
@@ -29,10 +42,11 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isAllTasksOpen, setIsAllTasksOpen] = useState(false);
   const [selectedSubjectForCCE, setSelectedSubjectForCCE] = useState<string | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
-  const { isActive: isNotificationHubActive, permission, requestPermission } = useNotificationHub(timetable);
+  const { isActive: isNotificationHubActive, permission, requestPermission } = useNotificationHub(timetable, taskData);
 
   // CCE Handlers
   const handleAddCCEWork = (subject: string, work: Omit<CCEWork, 'id' | 'createdAt' | 'completed'>) => {
@@ -70,6 +84,38 @@ function App() {
       ...prev,
       [subject]: (prev[subject] || []).map(w => 
         w.id === workId ? { ...w, ...updates } : w
+      )
+    }));
+  };
+
+  // Task Handlers
+  const handleAddTask = (task: Omit<PersonalTask, 'id' | 'createdAt' | 'completed'>) => {
+    const newTask: PersonalTask = {
+      ...task,
+      id: Math.random().toString(36).substring(2, 11),
+      createdAt: Date.now(),
+      completed: false
+    };
+    
+    setTaskData(prev => ({
+      ...prev,
+      [task.date]: [newTask, ...(prev[task.date] || [])]
+    }));
+  };
+
+  const handleDeleteTask = (date: string, taskId: string) => {
+    if (!window.confirm("Are you sure you want to delete this task?")) return;
+    setTaskData(prev => ({
+      ...prev,
+      [date]: (prev[date] || []).filter(t => t.id !== taskId)
+    }));
+  };
+
+  const handleToggleTask = (date: string, taskId: string) => {
+    setTaskData(prev => ({
+      ...prev,
+      [date]: (prev[date] || []).map(t => 
+        t.id === taskId ? { ...t, completed: !t.completed } : t
       )
     }));
   };
@@ -114,7 +160,8 @@ function App() {
       Object.entries(periods).forEach(([pNum, info]) => {
         // If the subject field contains ( or @, it was likely not parsed correctly before
         // and the whole string was put into the subject field.
-        if (info.subject.includes('(') || info.subject.includes('@')) {
+        // We only re-parse if we don't already have a teacher or classroom.
+        if (!info.teacher && !info.classroom && (info.subject.includes('(') || info.subject.includes('@'))) {
           const reParsed = parseCell(info.subject);
           if (reParsed && (reParsed.teacher || reParsed.classroom)) {
             updatedTimetable[day][parseInt(pNum) as any] = {
@@ -293,6 +340,41 @@ function App() {
 
 
   const selectedDayData = timetable[selectedDay] || {};
+  const selectedDate = formatISODate(getDateOfNextDay(selectedDay, now));
+  const selectedDayTasks = taskData[selectedDate] || [];
+
+  const combinedSchedule = useMemo(() => {
+    const items: any[] = [];
+    
+    // Add periods
+    PERIOD_TIMINGS.forEach(timing => {
+      items.push({
+        type: 'period',
+        time: timing.startTime,
+        timing,
+        info: selectedDayData[timing.number],
+        isActive: selectedDay === currentDay && isActivePeriod(timing, now),
+        isPast: selectedDay === currentDay && isPastPeriod(timing, now),
+        pendingWorksCount: selectedDayData[timing.number] 
+          ? (cceData[selectedDayData[timing.number]!.subject] || []).filter(w => !w.completed).length 
+          : 0,
+        hasTaskConflict: selectedDayTasks.some(t => !t.completed && areTimesOverlapping(t.startTime, t.endTime, timing.startTime, timing.endTime, now))
+      });
+    });
+
+    // Add tasks
+    selectedDayTasks.forEach(task => {
+      items.push({
+        type: 'task',
+        time: task.startTime,
+        task
+      });
+    });
+
+    const sorted = items.sort((a, b) => getMinutesSinceMidnight(a.time) - getMinutesSinceMidnight(b.time));
+    console.log("Combined Schedule:", sorted);
+    return sorted;
+  }, [selectedDayData, selectedDayTasks, currentDay, selectedDay, now, cceData]);
 
   return (
     <div className="min-h-screen bg-inherit pb-24 animate-in fade-in duration-700 flex flex-col">
@@ -382,22 +464,41 @@ function App() {
       </header>
 
       {/* Timetable List */}
-      <main className="max-w-2xl mx-auto px-4 py-8 flex-1">
+      <main className="max-w-2xl mx-auto px-4 py-8 flex-1 space-y-10">
+        <TaskManager 
+          date={selectedDate}
+          tasks={selectedDayTasks}
+          timetable={timetable || {}}
+          onAddTask={handleAddTask}
+          onDeleteTask={(id) => handleDeleteTask(selectedDate, id)}
+          onToggleTask={(id) => handleToggleTask(selectedDate, id)}
+          onViewAll={() => setIsAllTasksOpen(true)}
+        />
+
         <div className="space-y-4">
-          {PERIOD_TIMINGS.map(timing => (
-            <PeriodCard
-              key={timing.number}
-              timing={timing}
-              info={selectedDayData[timing.number]}
-              isActive={selectedDay === currentDay && isActivePeriod(timing, now)}
-              isPast={selectedDay === currentDay && isPastPeriod(timing, now)}
-              onOpenCCE={setSelectedSubjectForCCE}
-              pendingWorksCount={
-                selectedDayData[timing.number] 
-                  ? (cceData[selectedDayData[timing.number]!.subject] || []).filter(w => !w.completed).length 
-                  : 0
-              }
-            />
+          <div className="flex items-center justify-between">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Daily Schedule</h3>
+          </div>
+          {combinedSchedule.map((item) => (
+            item.type === 'period' ? (
+              <PeriodCard
+                key={`period-${item.timing.number}`}
+                timing={item.timing}
+                info={item.info}
+                isActive={item.isActive}
+                isPast={item.isPast}
+                onOpenCCE={setSelectedSubjectForCCE}
+                pendingWorksCount={item.pendingWorksCount}
+                hasTaskConflict={item.hasTaskConflict}
+              />
+            ) : (
+              <TaskCard 
+                key={`task-${item.task.id}`}
+                task={item.task}
+                onDelete={() => handleDeleteTask(selectedDate, item.task.id)}
+                onToggle={() => handleToggleTask(selectedDate, item.task.id)}
+              />
+            )
           ))}
         </div>
       </main>
@@ -475,6 +576,16 @@ function App() {
           </div>
         </div>
       )}
+      {/* All Tasks Modal */}
+      {isAllTasksOpen && (
+        <AllTasksModal 
+          tasks={taskData}
+          onClose={() => setIsAllTasksOpen(false)}
+          onDeleteTask={handleDeleteTask}
+          onToggleTask={handleToggleTask}
+        />
+      )}
+
       {/* CCE Modal */}
       {selectedSubjectForCCE && (
         <CCEManager

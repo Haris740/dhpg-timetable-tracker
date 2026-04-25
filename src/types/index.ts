@@ -6,6 +6,20 @@ export interface SubjectInfo {
   classroom?: string;
 }
 
+export interface PersonalTask {
+  id: string;
+  title: string;
+  date: string; // ISO date string (YYYY-MM-DD)
+  startTime: string; // "HH:mm"
+  endTime: string;   // "HH:mm"
+  completed: boolean;
+  createdAt: number;
+}
+
+export type TaskData = {
+  [date: string]: PersonalTask[];
+};
+
 export type CCEWorkType = 'assignment' | 'ppt' | 'presentation' | 'reading' | 'research' | 'watching' | 'note writing';
 
 export interface CCEWork {

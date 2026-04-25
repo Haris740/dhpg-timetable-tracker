@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, User, Landmark, ClipboardList } from 'lucide-react';
+import { Clock, User, Landmark, ClipboardList, AlertTriangle } from 'lucide-react';
 import type { SubjectInfo, PeriodTiming } from '../types';
 import { cn } from '../utils/cn';
 import { getSubjectColor, getColorClasses } from '../utils/colors';
@@ -11,6 +11,7 @@ interface PeriodCardProps {
   isPast: boolean;
   onOpenCCE: (subject: string) => void;
   pendingWorksCount?: number;
+  hasTaskConflict?: boolean;
 }
 
 export const PeriodCard: React.FC<PeriodCardProps> = ({ 
@@ -19,7 +20,8 @@ export const PeriodCard: React.FC<PeriodCardProps> = ({
   isActive, 
   isPast,
   onOpenCCE,
-  pendingWorksCount = 0
+  pendingWorksCount = 0,
+  hasTaskConflict = false
 }) => {
   const subjectColor = info ? getSubjectColor(info.subject) : 'blue';
   const colors = getColorClasses(subjectColor);
@@ -49,10 +51,20 @@ export const PeriodCard: React.FC<PeriodCardProps> = ({
       colors.bg,
       colors.border,
       isActive && cn("animate-pulse-glow scale-[1.03] shadow-2xl z-10", colors.ring),
-      isPast && "opacity-40 grayscale-[0.6]"
+      isPast && "opacity-40 grayscale-[0.6]",
+      hasTaskConflict && "border-amber-500/50 dark:border-amber-500/30 ring-4 ring-amber-500/10"
     )}>
       {/* Subtle Inner Glow/Shadow */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-black/5 pointer-events-none" />
+
+      {hasTaskConflict && !isPast && (
+        <div className="absolute top-20 right-6 animate-in slide-in-from-right-4 duration-500">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest shadow-lg">
+            <AlertTriangle size={10} strokeWidth={3} />
+            Task Conflict
+          </div>
+        </div>
+      )}
 
       {isActive && (
         <div className="absolute top-6 right-6">
