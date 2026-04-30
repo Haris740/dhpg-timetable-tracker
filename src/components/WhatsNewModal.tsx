@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, CheckCircle2, Layout, Zap, ArrowRight, Sparkles, Monitor, Smartphone, SmartphoneNfc } from 'lucide-react';
+import { Bell, Layout, ArrowRight, Sparkles, Monitor, SmartphoneNfc } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 const APP_VERSION = '3.0.0';

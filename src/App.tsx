@@ -32,7 +32,7 @@ import {
   areTimesOverlapping, 
   getMinutesSinceMidnight 
 } from './utils/time';
-import { Download, Smartphone, Sparkles } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
 
 function App() {

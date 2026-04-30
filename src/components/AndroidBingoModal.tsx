@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Smartphone, Download, CheckCircle2, Layout, Zap, ArrowRight, Sparkles, Box } from 'lucide-react';
+import React from 'react';
+import { Smartphone, Download, Layout, Zap, Box } from 'lucide-react';
 import { cn } from '../utils/cn';
-import { Capacitor } from '@capacitor/core';
 
 export const AndroidBingoModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
