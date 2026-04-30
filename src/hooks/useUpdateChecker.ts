@@ -19,14 +19,12 @@ export const useUpdateChecker = () => {
       const response = await fetch(UPDATE_URL);
       const data = await response.json();
       
-      if (data.version !== CURRENT_VERSION) {
-        setUpdateInfo({
-          version: data.version,
-          isAvailable: true,
-          notes: data.notes || '',
-          apkUrl: data.apkUrl || ''
-        });
-      }
+      setUpdateInfo({
+        version: data.version,
+        isAvailable: data.version !== CURRENT_VERSION,
+        notes: data.notes || '',
+        apkUrl: data.apkUrl || ''
+      });
     } catch (error) {
       console.error("Update check failed:", error);
     }

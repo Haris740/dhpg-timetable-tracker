@@ -619,6 +619,7 @@ function App() {
       <AndroidBingoModal 
         isOpen={isAndroidBingoOpen} 
         onClose={() => setIsAndroidBingoOpen(false)} 
+        apkUrl={updateInfo?.apkUrl}
       />
     </div>
   );

@@ -2,7 +2,11 @@ import React from 'react';
 import { Download, Layout, Zap, Box } from 'lucide-react';
 import { cn } from '../utils/cn';
 
-export const AndroidBingoModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+export const AndroidBingoModal: React.FC<{ 
+  isOpen: boolean; 
+  onClose: () => void;
+  apkUrl?: string;
+}> = ({ isOpen, onClose, apkUrl }) => {
   if (!isOpen) return null;
 
   const features = [
@@ -87,7 +91,7 @@ export const AndroidBingoModal: React.FC<{ isOpen: boolean; onClose: () => void 
         {/* Action Button */}
         <div className="p-8 border-t border-slate-100 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/20 flex flex-col gap-3">
           <a 
-            href="/timetable-pro-v3.apk" 
+            href={apkUrl || "/timetable-pro-v3.apk"} 
             download
             className="w-full py-4 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
           >
