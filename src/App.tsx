@@ -50,7 +50,7 @@ function App() {
   const [selectedSubjectForCCE, setSelectedSubjectForCCE] = useState<string | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isAndroidBingoOpen, setIsAndroidBingoOpen] = useState(false);
-  const isAndroid = Capacitor.getPlatform() === 'android';
+  const isAndroid = Capacitor.getPlatform() === 'android' || /Android/i.test(navigator.userAgent);
   const { updateInfo } = useUpdateChecker();
 
   const { isActive: isNotificationHubActive, permission, requestPermission } = useNotificationHub(timetable, taskData);
@@ -613,7 +613,9 @@ function App() {
         />
       )}
 
-      <WhatsNewModal />
+      <WhatsNewModal onClose={() => {
+        if (isAndroid) setIsAndroidBingoOpen(true);
+      }} />
       <AndroidBingoModal 
         isOpen={isAndroidBingoOpen} 
         onClose={() => setIsAndroidBingoOpen(false)} 

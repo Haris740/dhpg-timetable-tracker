@@ -1,5 +1,5 @@
 import React from 'react';
-import { Smartphone, Download, Layout, Zap, Box } from 'lucide-react';
+import { Download, Layout, Zap, Box } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 export const AndroidBingoModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
@@ -28,7 +28,7 @@ export const AndroidBingoModal: React.FC<{ isOpen: boolean; onClose: () => void 
 
   return (
     <div className="fixed inset-0 z-[210] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-xl animate-in fade-in duration-500">
-      <div className="bg-white dark:bg-slate-950 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-500 flex flex-col max-h-[90vh]">
+      <div className="bg-white dark:bg-slate-950 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-500 flex flex-col max-h-[85vh]">
         
         {/* Hero Section */}
         <div className="relative h-56 bg-gradient-to-br from-green-500 to-emerald-700 overflow-hidden flex flex-col items-center justify-center text-center p-8">
@@ -38,12 +38,8 @@ export const AndroidBingoModal: React.FC<{ isOpen: boolean; onClose: () => void 
           </div>
           
           <div className="relative z-10 space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 text-white text-[10px] font-black uppercase tracking-widest mb-2 border border-white/30">
-              <Smartphone size={12} />
-              Android Exclusive
-            </div>
-            <h2 className="text-4xl font-black text-white leading-tight uppercase italic tracking-tighter">
-              BINGO! <br/> YOU'RE ON ANDROID
+            <h2 className="text-3xl font-black text-white leading-tight uppercase italic tracking-tighter">
+              BINGO! ANDROID
             </h2>
             <p className="text-sm font-bold text-white/80 max-w-xs mx-auto">
               You've unlocked the full potential of Timetable Pro v3.0.

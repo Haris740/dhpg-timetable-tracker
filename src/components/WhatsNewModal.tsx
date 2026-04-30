@@ -4,7 +4,7 @@ import { cn } from '../utils/cn';
 
 const APP_VERSION = '3.0.0';
 
-export const WhatsNewModal: React.FC = () => {
+export const WhatsNewModal: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -17,6 +17,7 @@ export const WhatsNewModal: React.FC = () => {
   const handleClose = () => {
     localStorage.setItem('has_seen_whats_new_version', APP_VERSION);
     setIsOpen(false);
+    onClose?.();
   };
 
 
@@ -53,22 +54,22 @@ export const WhatsNewModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-500">
-      <div className="bg-white dark:bg-slate-950 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-500 flex flex-col max-h-[90vh]">
-        
+      <div className="bg-white dark:bg-slate-950 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-500 flex flex-col max-h-[85vh]">
+
         {/* Hero Section */}
         <div className="relative h-56 bg-slate-900 dark:bg-white overflow-hidden flex flex-col items-center justify-center text-center p-8">
           <div className="absolute inset-0 opacity-20">
             <div className="absolute top-0 left-0 w-32 h-32 bg-primary-500 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
             <div className="absolute bottom-0 right-0 w-32 h-32 bg-purple-500 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
           </div>
-          
+
           <div className="relative z-10 space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/20 text-primary-400 text-[10px] font-black uppercase tracking-widest mb-2 border border-primary-500/30">
               <Sparkles size={12} />
               MAJOR UPDATE v3.0
             </div>
             <h2 className="text-4xl font-black text-white dark:text-slate-900 leading-tight uppercase italic tracking-tighter">
-              THE BIG ONE <br/> IS HERE
+              THE BIG ONE <br /> IS HERE
             </h2>
           </div>
         </div>
@@ -120,7 +121,7 @@ export const WhatsNewModal: React.FC = () => {
 
         {/* Action Button */}
         <div className="p-8 border-t border-slate-100 dark:border-slate-900 bg-slate-50/50 dark:bg-slate-900/20">
-          <button 
+          <button
             onClick={handleClose}
             className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
           >
