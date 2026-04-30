@@ -20,6 +20,8 @@ import type { CCEData, CCEWork, TaskData, PersonalTask } from './types';
 import { TaskManager } from './components/TaskManager';
 import { AllTasksModal } from './components/AllTasksModal';
 import { TaskCard } from './components/TaskCard';
+import { AndroidBingoModal } from './components/AndroidBingoModal';
+import { Capacitor } from '@capacitor/core';
 import { 
   getCurrentPeriod, 
   getNextPeriod, 
@@ -30,6 +32,8 @@ import {
   areTimesOverlapping, 
   getMinutesSinceMidnight 
 } from './utils/time';
+import { Download, Smartphone, Sparkles } from 'lucide-react';
+import { useUpdateChecker } from './hooks/useUpdateChecker';
 
 function App() {
   const [timetable, setTimetable] = useLocalStorage<TimetableData | null>('timetable', null);
@@ -45,6 +49,9 @@ function App() {
   const [isAllTasksOpen, setIsAllTasksOpen] = useState(false);
   const [selectedSubjectForCCE, setSelectedSubjectForCCE] = useState<string | null>(null);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAndroidBingoOpen, setIsAndroidBingoOpen] = useState(false);
+  const isAndroid = Capacitor.getPlatform() === 'android';
+  const { updateInfo } = useUpdateChecker();
 
   const { isActive: isNotificationHubActive, permission, requestPermission } = useNotificationHub(timetable, taskData);
 
@@ -151,55 +158,60 @@ function App() {
 
   // Migration: Re-parse existing data with new logic if needed
   useEffect(() => {
-    if (!timetable) return;
-    
-    let needsUpdate = false;
-    const updatedTimetable = JSON.parse(JSON.stringify(timetable)) as TimetableData;
-    
-    Object.entries(updatedTimetable).forEach(([day, periods]) => {
-      Object.entries(periods).forEach(([pNum, info]) => {
-        // If the subject field contains ( or @, it was likely not parsed correctly before
-        // and the whole string was put into the subject field.
-        // We only re-parse if we don't already have a teacher or classroom.
-        if (!info.teacher && !info.classroom && (info.subject.includes('(') || info.subject.includes('@'))) {
-          const reParsed = parseCell(info.subject);
-          if (reParsed && (reParsed.teacher || reParsed.classroom)) {
-            updatedTimetable[day][parseInt(pNum) as any] = {
-              ...info,
-              ...reParsed
-            };
-            needsUpdate = true;
-          }
-        }
-      });
-    });
-    
-    if (needsUpdate) {
-      setTimetable(updatedTimetable);
-    }
-
-    // Migration for CCE works: Add default type if missing
-    if (cceData) {
-      let cceNeedsUpdate = false;
-      const updatedCceData = JSON.parse(JSON.stringify(cceData)) as CCEData;
+    try {
+      if (!timetable) return;
       
-      Object.entries(updatedCceData).forEach(([_subject, works]) => {
-        works.forEach((work: any) => {
-          if (!work.type) {
-            work.type = 'assignment';
-            cceNeedsUpdate = true;
-          }
-          if (work.title && !work.topic) {
-            work.topic = work.title;
-            delete work.title;
-            cceNeedsUpdate = true;
+      let needsUpdate = false;
+      const updatedTimetable = JSON.parse(JSON.stringify(timetable)) as TimetableData;
+      
+      Object.entries(updatedTimetable).forEach(([day, periods]) => {
+        if (!periods || typeof periods !== 'object') return;
+        Object.entries(periods).forEach(([pNum, info]) => {
+          if (!info) return;
+          // If the subject field contains ( or @, it was likely not parsed correctly before
+          if (!info.teacher && !info.classroom && (info.subject.includes('(') || info.subject.includes('@'))) {
+            const reParsed = parseCell(info.subject);
+            if (reParsed && (reParsed.teacher || reParsed.classroom)) {
+              updatedTimetable[day][parseInt(pNum) as any] = {
+                ...info,
+                ...reParsed
+              };
+              needsUpdate = true;
+            }
           }
         });
       });
       
-      if (cceNeedsUpdate) {
-        setCceData(updatedCceData);
+      if (needsUpdate) {
+        setTimetable(updatedTimetable);
       }
+
+      // Migration for CCE works: Add default type if missing
+      if (cceData) {
+        let cceNeedsUpdate = false;
+        const updatedCceData = JSON.parse(JSON.stringify(cceData)) as CCEData;
+        
+        Object.entries(updatedCceData).forEach(([_subject, works]) => {
+          if (!Array.isArray(works)) return;
+          works.forEach((work: any) => {
+            if (!work.type) {
+              work.type = 'assignment';
+              cceNeedsUpdate = true;
+            }
+            if (work.title && !work.topic) {
+              work.topic = work.title;
+              delete work.title;
+              cceNeedsUpdate = true;
+            }
+          });
+        });
+        
+        if (cceNeedsUpdate) {
+          setCceData(updatedCceData);
+        }
+      }
+    } catch (err) {
+      console.error("Migration failed:", err);
     }
   }, []); // Run only once on mount
 
@@ -208,6 +220,11 @@ function App() {
   function formatDay(date: Date): string {
     return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(date);
   }
+
+  // Derived data for hooks and rendering
+  const selectedDayData = timetable ? (timetable[selectedDay] || {}) : {};
+  const selectedDate = formatISODate(getDateOfNextDay(selectedDay, now));
+  const selectedDayTasks = taskData[selectedDate] || [];
 
   const currentPeriodInfo = useMemo(() => {
     const period = getCurrentPeriod(now);
@@ -223,7 +240,38 @@ function App() {
     return { timing: period, info };
   }, [now, timetable, currentDay]);
 
-  // Notification state synchronization is handled by the NotificationManager component
+  const combinedSchedule = useMemo(() => {
+    if (!timetable) return [];
+    
+    const items: any[] = [];
+    
+    // Add periods
+    PERIOD_TIMINGS.forEach(timing => {
+      items.push({
+        type: 'period',
+        time: timing.startTime,
+        timing,
+        info: selectedDayData[timing.number],
+        isActive: selectedDay === currentDay && isActivePeriod(timing, now),
+        isPast: selectedDay === currentDay && isPastPeriod(timing, now),
+        pendingWorksCount: selectedDayData[timing.number] 
+          ? (cceData[selectedDayData[timing.number]!.subject] || []).filter(w => !w.completed).length 
+          : 0,
+        hasTaskConflict: selectedDayTasks.some(t => !t.completed && areTimesOverlapping(t.startTime, t.endTime, timing.startTime, timing.endTime, now))
+      });
+    });
+
+    // Add tasks
+    selectedDayTasks.forEach(task => {
+      items.push({
+        type: 'task',
+        time: task.startTime,
+        task
+      });
+    });
+
+    return items.sort((a, b) => getMinutesSinceMidnight(a.time) - getMinutesSinceMidnight(b.time));
+  }, [timetable, selectedDayData, selectedDayTasks, currentDay, selectedDay, now, cceData]);
 
   const searchResults = useMemo(() => {
     if (!searchQuery.trim() || !timetable) return [];
@@ -339,43 +387,6 @@ function App() {
 
 
 
-  const selectedDayData = timetable[selectedDay] || {};
-  const selectedDate = formatISODate(getDateOfNextDay(selectedDay, now));
-  const selectedDayTasks = taskData[selectedDate] || [];
-
-  const combinedSchedule = useMemo(() => {
-    const items: any[] = [];
-    
-    // Add periods
-    PERIOD_TIMINGS.forEach(timing => {
-      items.push({
-        type: 'period',
-        time: timing.startTime,
-        timing,
-        info: selectedDayData[timing.number],
-        isActive: selectedDay === currentDay && isActivePeriod(timing, now),
-        isPast: selectedDay === currentDay && isPastPeriod(timing, now),
-        pendingWorksCount: selectedDayData[timing.number] 
-          ? (cceData[selectedDayData[timing.number]!.subject] || []).filter(w => !w.completed).length 
-          : 0,
-        hasTaskConflict: selectedDayTasks.some(t => !t.completed && areTimesOverlapping(t.startTime, t.endTime, timing.startTime, timing.endTime, now))
-      });
-    });
-
-    // Add tasks
-    selectedDayTasks.forEach(task => {
-      items.push({
-        type: 'task',
-        time: task.startTime,
-        task
-      });
-    });
-
-    const sorted = items.sort((a, b) => getMinutesSinceMidnight(a.time) - getMinutesSinceMidnight(b.time));
-    console.log("Combined Schedule:", sorted);
-    return sorted;
-  }, [selectedDayData, selectedDayTasks, currentDay, selectedDay, now, cceData]);
-
   return (
     <div className="min-h-screen bg-inherit pb-24 animate-in fade-in duration-700 flex flex-col">
       {/* Header */}
@@ -409,17 +420,20 @@ function App() {
               <Search size={20} strokeWidth={2.5} />
             </button>
             <button 
-              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+              onClick={() => isAndroid ? setIsAndroidBingoOpen(true) : setIsNotificationsOpen(!isNotificationsOpen)}
               className={cn(
                 "p-3 rounded-2xl border transition-all active:scale-95 relative",
-                isNotificationsOpen 
+                (isAndroid ? isAndroidBingoOpen : isNotificationsOpen)
                   ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white" 
                   : "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800"
               )}
             >
-              <Bell size={20} strokeWidth={2.5} />
-              {isNotificationHubActive && (
-                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-slate-950 animate-pulse" />
+              {isAndroid ? <Download size={20} strokeWidth={2.5} /> : <Bell size={20} strokeWidth={2.5} />}
+              {((isNotificationHubActive && !isAndroid) || (updateInfo?.isAvailable)) && (
+                <span className={cn(
+                  "absolute top-2 right-2 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-950 animate-pulse",
+                  updateInfo?.isAvailable ? "bg-red-500" : "bg-green-500"
+                )} />
               )}
             </button>
             <button 
@@ -600,6 +614,10 @@ function App() {
       )}
 
       <WhatsNewModal />
+      <AndroidBingoModal 
+        isOpen={isAndroidBingoOpen} 
+        onClose={() => setIsAndroidBingoOpen(false)} 
+      />
     </div>
   );
 }

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, CheckCircle2, Layout, Zap, ArrowRight, Sparkles } from 'lucide-react';
+import { Bell, CheckCircle2, Layout, Zap, ArrowRight, Sparkles, Monitor, Smartphone, SmartphoneNfc } from 'lucide-react';
 import { cn } from '../utils/cn';
 
-const APP_VERSION = '2.1.0';
+const APP_VERSION = '3.0.0';
 
 export const WhatsNewModal: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,37 +24,39 @@ export const WhatsNewModal: React.FC = () => {
 
   const features = [
     {
-      icon: Zap,
-      title: "Personal Task Alerts",
-      description: "Add custom tasks with an alerting amber design that stand out in your schedule.",
-      color: "bg-amber-500"
+      icon: Sparkles,
+      title: "Premium Dark Glass UI",
+      description: "A complete visual overhaul with stunning translucent aesthetics and smoother animations.",
+      color: "bg-slate-900"
+    },
+    {
+      icon: SmartphoneNfc,
+      title: "Android Native Widgets",
+      description: "4 brand new high-performance widgets. Track your classes and tasks from your home screen.",
+      color: "bg-green-500"
     },
     {
       icon: Bell,
-      title: "Task Notifications",
-      description: "Get instantly notified when your personal tasks are about to start.",
+      title: "Live 'NOW' Highlighting",
+      description: "Always know where you should be with real-time period tracking and visual cues.",
       color: "bg-blue-500"
     },
     {
       icon: Layout,
-      title: "Unified Schedule",
-      description: "Tasks are now perfectly sorted between your class periods chronologically.",
+      title: "CCE & Tasks Hub",
+      description: "Dedicated sections to manage all your pending assignments and personal tasks seamlessly.",
       color: "bg-purple-500"
-    },
-    {
-      icon: CheckCircle2,
-      title: "Conflict Detection",
-      description: "Automatic warnings if your personal tasks overlap with existing class periods.",
-      color: "bg-red-500"
     }
   ];
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-500">
       <div className="bg-white dark:bg-slate-950 w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 duration-500 flex flex-col max-h-[90vh]">
         
         {/* Hero Section */}
-        <div className="relative h-48 bg-slate-900 dark:bg-white overflow-hidden flex flex-col items-center justify-center text-center p-8">
+        <div className="relative h-56 bg-slate-900 dark:bg-white overflow-hidden flex flex-col items-center justify-center text-center p-8">
           <div className="absolute inset-0 opacity-20">
             <div className="absolute top-0 left-0 w-32 h-32 bg-primary-500 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
             <div className="absolute bottom-0 right-0 w-32 h-32 bg-purple-500 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
@@ -63,10 +65,10 @@ export const WhatsNewModal: React.FC = () => {
           <div className="relative z-10 space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/20 text-primary-400 text-[10px] font-black uppercase tracking-widest mb-2 border border-primary-500/30">
               <Sparkles size={12} />
-              Version 2.1 is here
+              MAJOR UPDATE v3.0
             </div>
-            <h2 className="text-3xl font-black text-white dark:text-slate-900 leading-tight uppercase italic tracking-tighter">
-              What's New in <br/> Timetable Pro
+            <h2 className="text-4xl font-black text-white dark:text-slate-900 leading-tight uppercase italic tracking-tighter">
+              THE BIG ONE <br/> IS HERE
             </h2>
           </div>
         </div>
@@ -94,13 +96,24 @@ export const WhatsNewModal: React.FC = () => {
             ))}
           </div>
 
-          <div className="mt-10 p-6 rounded-3xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+          <div className="mt-10 p-6 rounded-3xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800 relative overflow-hidden group">
+            {isIOS && (
+              <div className="absolute inset-0 bg-red-500/5 backdrop-blur-[2px] z-10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                <span className="text-[8px] font-black uppercase text-red-500 rotate-12">Switch to Android for Widgets</span>
+              </div>
+            )}
             <h5 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3 flex items-center gap-2">
-              <Zap size={12} className="text-yellow-500" />
-              Pro Tip
+              <Monitor size={12} className="text-blue-500" />
+              Platform Status
             </h5>
             <p className="text-xs font-bold text-slate-600 dark:text-slate-400 leading-relaxed">
-              Use the <span className="text-primary-500">View All</span> button in the Personal Tasks section to manage your full schedule in one place!
+              {isIOS ? (
+                <span>
+                  Hey iOS user! We'd love to show you the new Widgets, but Apple is... well, Apple. Maybe it's time to switch to a <span className="text-green-500">better OS</span>? 😉
+                </span>
+              ) : (
+                "Android users: This update is built specifically for you. Enjoy the premium native experience!"
+              )}
             </p>
           </div>
         </div>
@@ -111,7 +124,7 @@ export const WhatsNewModal: React.FC = () => {
             onClick={handleClose}
             className="w-full py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
           >
-            Got it, Let's Go!
+            Upgrade My Life
             <ArrowRight size={18} strokeWidth={3} />
           </button>
         </div>

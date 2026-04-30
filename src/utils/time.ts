@@ -115,8 +115,13 @@ export const areTimesOverlapping = (
  * Gets the day name (e.g., "Monday") from a date.
  */
 export const getDayName = (date: Date | string): string => {
-  const d = typeof date === 'string' ? parse(date, 'yyyy-MM-dd', new Date()) : date;
-  return DAYS_OF_WEEK[getDay(d)];
+  try {
+    const d = typeof date === 'string' ? parse(date, 'yyyy-MM-dd', new Date()) : date;
+    const dayIndex = getDay(d);
+    return DAYS_OF_WEEK[dayIndex] || DAYS_OF_WEEK[0];
+  } catch (e) {
+    return DAYS_OF_WEEK[0];
+  }
 };
 
 /**

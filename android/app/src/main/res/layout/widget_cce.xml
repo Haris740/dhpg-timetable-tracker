@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="8dp">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="12dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="PENDING CCE"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.05"/>
+
+        <TextView
+            android:id="@+id/btn_refresh_cce"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="↻"
+            android:textColor="#FFFFFF"
+            android:textSize="20sp"
+            android:padding="4dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"/>
+    </LinearLayout>
+
+    <!-- CCE List -->
+    <ListView
+        android:id="@+id/cce_list_view"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:divider="@android:color/transparent"
+        android:dividerHeight="6dp"
+        android:paddingLeft="4dp"
+        android:paddingRight="4dp"/>
+
+    <TextView
+        android:id="@+id/cce_empty_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="All clear! No pending CCE works."
+        android:textColor="#94A3B8"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:visibility="gone"/>
+
+</LinearLayout>

@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Timetable Pro</string>
+    <string name="title_activity_main">Timetable Pro</string>
+    <string name="package_name">com.mmchessman.timetablepro</string>
+    <string name="custom_url_scheme">com.mmchessman.timetablepro</string>
+    <string name="label_widget_live">Timetable: Live Status</string>
+    <string name="label_widget_full">Timetable: Full List</string>
+    <string name="label_widget_tasks">Tasks: Daily List</string>
+    <string name="label_widget_cce">CCE: Pending Works</string>
+</resources>

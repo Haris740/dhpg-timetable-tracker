@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="2dp">
+
+    <LinearLayout
+        android:id="@+id/cce_item_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@drawable/widget_list_item_bg"
+        android:padding="12dp"
+        android:gravity="center_vertical">
+
+        <!-- Type Icon -->
+        <FrameLayout
+            android:id="@+id/cce_type_icon_bg"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="@drawable/badge_bg"
+            android:layout_marginRight="12dp">
+            <TextView
+                android:id="@+id/tv_cce_type_letter"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="A"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:layout_gravity="center"/>
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/tv_cce_topic"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Topic Title"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end"/>
+            <TextView
+                android:id="@+id/tv_cce_subject"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Subject"
+                android:textColor="#94A3B8"
+                android:textSize="12sp"
+                android:layout_marginTop="2dp"/>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_cce_deadline"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="May 05"
+            android:textColor="#FCA5A5"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:layout_marginLeft="8dp"/>
+    </LinearLayout>
+</LinearLayout>
