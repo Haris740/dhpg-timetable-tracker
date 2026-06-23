@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Calendar, Trash2, X, Sun, Moon, Bell, CheckCircle2 } from 'lucide-react';
+import { Search, Calendar, X, Sun, Moon, Bell, CheckCircle2, Settings, Plus } from 'lucide-react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useCurrentTime } from './hooks/useCurrentTime';
 import { useTheme } from './hooks/useTheme';
-import type { TimetableData } from './types';
+import type { TimetableData, CCEData, CCEWork, TaskData, PersonalTask, AppSettings, CustomPeriod, TimetableOverrides, PeriodTiming, PeriodNumber } from './types';
 import { PERIOD_TIMINGS, DAYS_OF_WEEK } from './types';
 import { parseCell } from './utils/parser';
 import { CsvUploader } from './components/CsvUploader';
@@ -12,26 +12,30 @@ import { CCEManager } from './components/CCEManager';
 import { NowNextBanner } from './components/NowNextBanner';
 import { NotificationManager } from './components/NotificationManager';
 import { WhatsNewModal } from './components/WhatsNewModal';
+import { EditPeriodModal } from './components/EditPeriodModal';
+import { WeeklyGridView } from './components/WeeklyGridView';
+import { AnalyticsView } from './components/AnalyticsView';
+import { SettingsModal } from './components/SettingsModal';
 
 import { useNotificationHub } from './hooks/useNotificationHub';
 import { cn } from './utils/cn';
 import { getSubjectColor, getColorClasses } from './utils/colors';
-import type { CCEData, CCEWork, TaskData, PersonalTask } from './types';
 import { TaskManager } from './components/TaskManager';
 import { AllTasksModal } from './components/AllTasksModal';
 import { TaskCard } from './components/TaskCard';
 import { AndroidBingoModal } from './components/AndroidBingoModal';
 import { Capacitor } from '@capacitor/core';
 import { 
-  getCurrentPeriod, 
-  getNextPeriod, 
-  isPastPeriod, 
-  isActivePeriod, 
   formatISODate, 
   getDateOfNextDay, 
   areTimesOverlapping, 
-  getMinutesSinceMidnight 
+  getMinutesSinceMidnight,
+  getScheduleForDate,
+  getCurrentClass,
+  getNextClass
 } from './utils/time';
+import { generateGoogleCalendarUrl } from './utils/calendar';
+import { parse, isWithinInterval, isAfter } from 'date-fns';
 import { Download } from 'lucide-react';
 import { useUpdateChecker } from './hooks/useUpdateChecker';
 
@@ -39,6 +43,13 @@ function App() {
   const [timetable, setTimetable] = useLocalStorage<TimetableData | null>('timetable', null);
   const [cceData, setCceData] = useLocalStorage<CCEData>('cce_works', {});
   const [taskData, setTaskData] = useLocalStorage<TaskData>('personal_tasks', {});
+  const [weeklyCustomPeriods, setWeeklyCustomPeriods] = useLocalStorage<{ [day: string]: CustomPeriod[] }>('weekly_custom_periods', {});
+  const [timetableOverrides, setTimetableOverrides] = useLocalStorage<TimetableOverrides>('timetable_overrides', {});
+  const [appSettings, setAppSettings] = useLocalStorage<AppSettings>('app_settings', {
+    notificationsEnabled: true,
+    notificationOffset: 0
+  });
+
   const { theme, toggleTheme } = useTheme();
   const now = useCurrentTime();
   const currentDay = formatDay(now);
@@ -53,7 +64,32 @@ function App() {
   const isAndroid = Capacitor.getPlatform() === 'android' || /Android/i.test(navigator.userAgent);
   const { updateInfo } = useUpdateChecker();
 
-  const { isActive: isNotificationHubActive, permission, requestPermission } = useNotificationHub(timetable, taskData);
+  // Tab Selection
+  const [activeTab, setActiveTab] = useState<'daily' | 'grid' | 'stats'>('daily');
+
+  // Edit class state
+  const [isEditPeriodOpen, setIsEditPeriodOpen] = useState(false);
+  const [editingCellInfo, setEditingCellInfo] = useState<{
+    dateStr: string;
+    periodId?: string;
+    subject?: string;
+    teacher?: string;
+    classroom?: string;
+    startTime?: string;
+    endTime?: string;
+    isCustom?: boolean;
+  } | null>(null);
+
+  // Settings state
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  const { isActive: isNotificationHubActive, permission, requestPermission } = useNotificationHub(
+    timetable,
+    weeklyCustomPeriods,
+    timetableOverrides,
+    taskData,
+    appSettings
+  );
 
   // CCE Handlers
   const handleAddCCEWork = (subject: string, work: Omit<CCEWork, 'id' | 'createdAt' | 'completed'>) => {
@@ -127,7 +163,183 @@ function App() {
     }));
   };
 
+  // Period / Schedule Editing Handlers
+  const handleSavePeriod = (
+    mode: 'temporary' | 'permanent',
+    periodInfo: {
+      id?: string;
+      subject: string;
+      teacher?: string;
+      classroom?: string;
+      isCustom: boolean;
+      periodNumber?: PeriodNumber;
+      startTime?: string;
+      endTime?: string;
+    }
+  ) => {
+    const newInfo = {
+      subject: periodInfo.subject,
+      teacher: periodInfo.teacher,
+      classroom: periodInfo.classroom
+    };
 
+    if (mode === 'permanent') {
+      if (periodInfo.isCustom) {
+        const cp: CustomPeriod = {
+          id: periodInfo.id || Math.random().toString(36).substring(2, 11),
+          subject: periodInfo.subject,
+          teacher: periodInfo.teacher,
+          classroom: periodInfo.classroom,
+          startTime: periodInfo.startTime || '09:00',
+          endTime: periodInfo.endTime || '10:00'
+        };
+        setWeeklyCustomPeriods(prev => {
+          const list = prev[selectedDay] || [];
+          if (periodInfo.id) {
+            return { ...prev, [selectedDay]: list.map(item => item.id === periodInfo.id ? cp : item) };
+          } else {
+            return { ...prev, [selectedDay]: [...list, cp] };
+          }
+        });
+      } else {
+        const pNum = periodInfo.periodNumber!;
+        setTimetable(prev => {
+          const updated = prev ? { ...prev } : {};
+          if (!updated[selectedDay]) updated[selectedDay] = {};
+          updated[selectedDay][pNum] = newInfo;
+          return updated;
+        });
+      }
+    } else {
+      // Temporary override for selectedDate
+      setTimetableOverrides(prev => {
+        const dateOverride = prev[selectedDate] || { periods: {}, customPeriods: [] };
+        const updatedPeriods = { ...dateOverride.periods };
+        let updatedCustom = [...(dateOverride.customPeriods || [])];
+
+        if (periodInfo.isCustom) {
+          const cp: CustomPeriod = {
+            id: periodInfo.id || Math.random().toString(36).substring(2, 11),
+            subject: periodInfo.subject,
+            teacher: periodInfo.teacher,
+            classroom: periodInfo.classroom,
+            startTime: periodInfo.startTime || '09:00',
+            endTime: periodInfo.endTime || '10:00'
+          };
+          if (periodInfo.id) {
+            const isTempCp = updatedCustom.some(item => item.id === periodInfo.id);
+            if (isTempCp) {
+               updatedCustom = updatedCustom.map(item => item.id === periodInfo.id ? cp : item);
+            } else {
+               updatedPeriods[periodInfo.id] = null; // override weekly custom
+               updatedCustom.push(cp);
+            }
+          } else {
+            updatedCustom.push(cp);
+          }
+        } else {
+          const pNumStr = periodInfo.periodNumber!.toString();
+          updatedPeriods[pNumStr] = newInfo;
+        }
+
+        return {
+          ...prev,
+          [selectedDate]: {
+            periods: updatedPeriods,
+            customPeriods: updatedCustom
+          }
+        };
+      });
+    }
+  };
+
+  const handleDeletePeriod = (mode: 'temporary' | 'permanent', periodId: string) => {
+    if (mode === 'permanent') {
+      if (periodId.startsWith('period-')) {
+        const pNum = parseInt(periodId.replace('period-', '')) as PeriodNumber;
+        setTimetable(prev => {
+          if (!prev) return prev;
+          const updated = { ...prev };
+          if (updated[selectedDay]) {
+            delete updated[selectedDay][pNum];
+          }
+          return updated;
+        });
+      } else {
+        setWeeklyCustomPeriods(prev => {
+          const list = prev[selectedDay] || [];
+          return {
+            ...prev,
+            [selectedDay]: list.filter(item => item.id !== periodId)
+          };
+        });
+      }
+    } else {
+      // Temporary override (mark as deleted)
+      setTimetableOverrides(prev => {
+        const dateOverride = prev[selectedDate] || { periods: {}, customPeriods: [] };
+        const updatedPeriods = { ...dateOverride.periods };
+        let updatedCustom = [...(dateOverride.customPeriods || [])];
+
+        if (periodId.startsWith('period-')) {
+          const pNumStr = periodId.replace('period-', '');
+          updatedPeriods[pNumStr] = null;
+        } else {
+          const isTempCp = updatedCustom.some(item => item.id === periodId);
+          if (isTempCp) {
+            updatedCustom = updatedCustom.filter(item => item.id !== periodId);
+          } else {
+            updatedPeriods[periodId] = null;
+          }
+        }
+
+        return {
+          ...prev,
+          [selectedDate]: {
+            periods: updatedPeriods,
+            customPeriods: updatedCustom
+          }
+        };
+      });
+    }
+  };
+
+  // Full backup data import
+  const handleImportAllData = (imported: {
+    timetable: TimetableData | null;
+    weeklyCustomPeriods: { [day: string]: CustomPeriod[] };
+    overrides: TimetableOverrides;
+    cceData: CCEData;
+    taskData: TaskData;
+    settings: AppSettings;
+  }) => {
+    setTimetable(imported.timetable);
+    setWeeklyCustomPeriods(imported.weeklyCustomPeriods);
+    setTimetableOverrides(imported.overrides);
+    setCceData(imported.cceData);
+    setTaskData(imported.taskData);
+    setAppSettings(imported.settings);
+  };
+
+  // Nuke sections
+  const handleClearSection = (section: 'timetable' | 'cce' | 'tasks' | 'all') => {
+    if (section === 'timetable') {
+      setTimetable(null);
+      setWeeklyCustomPeriods({});
+      setTimetableOverrides({});
+    } else if (section === 'cce') {
+      setCceData({});
+    } else if (section === 'tasks') {
+      setTaskData({});
+    } else if (section === 'all') {
+      setTimetable(null);
+      setWeeklyCustomPeriods({});
+      setTimetableOverrides({});
+      setCceData({});
+      setTaskData({});
+      setAppSettings({ notificationsEnabled: true, notificationOffset: 0 });
+    }
+  };
 
   // Sync selected day with current day on initial load
   useEffect(() => {
@@ -222,42 +434,75 @@ function App() {
   }
 
   // Derived data for hooks and rendering
-  const selectedDayData = timetable ? (timetable[selectedDay] || {}) : {};
   const selectedDate = formatISODate(getDateOfNextDay(selectedDay, now));
   const selectedDayTasks = taskData[selectedDate] || [];
 
+  const todayDateStr = useMemo(() => formatISODate(now), [now]);
+
+  const todayResolvedSchedule = useMemo(() => {
+    return getScheduleForDate(todayDateStr, timetable, weeklyCustomPeriods, timetableOverrides);
+  }, [todayDateStr, timetable, weeklyCustomPeriods, timetableOverrides]);
+
   const currentPeriodInfo = useMemo(() => {
-    const period = getCurrentPeriod(now);
-    if (!period) return undefined;
-    const info = timetable?.[currentDay]?.[period.number];
-    return { timing: period, info };
-  }, [now, timetable, currentDay]);
+    const item = getCurrentClass(now, todayResolvedSchedule);
+    if (!item) return undefined;
+    const timing: PeriodTiming = {
+      number: (item.periodNumber || 0) as PeriodNumber,
+      startTime: item.startTime,
+      endTime: item.endTime
+    };
+    return { timing, info: item };
+  }, [now, todayResolvedSchedule]);
 
   const nextPeriodInfo = useMemo(() => {
-    const period = getNextPeriod(now);
-    if (!period) return undefined;
-    const info = timetable?.[currentDay]?.[period.number];
-    return { timing: period, info };
-  }, [now, timetable, currentDay]);
+    const item = getNextClass(now, todayResolvedSchedule);
+    if (!item) return undefined;
+    const timing: PeriodTiming = {
+      number: (item.periodNumber || 0) as PeriodNumber,
+      startTime: item.startTime,
+      endTime: item.endTime
+    };
+    return { timing, info: item };
+  }, [now, todayResolvedSchedule]);
+
+  const resolvedSchedule = useMemo(() => {
+    return getScheduleForDate(selectedDate, timetable, weeklyCustomPeriods, timetableOverrides);
+  }, [selectedDate, timetable, weeklyCustomPeriods, timetableOverrides]);
 
   const combinedSchedule = useMemo(() => {
-    if (!timetable) return [];
-    
     const items: any[] = [];
     
     // Add periods
-    PERIOD_TIMINGS.forEach(timing => {
+    resolvedSchedule.forEach(item => {
+      const startDateTime = parse(`${selectedDate} ${item.startTime24}`, 'yyyy-MM-dd HH:mm', now);
+      const endDateTime = parse(`${selectedDate} ${item.endTime24}`, 'yyyy-MM-dd HH:mm', now);
+
+      const isActive = selectedDay === currentDay && isWithinInterval(now, { start: startDateTime, end: endDateTime });
+      const isPast = selectedDay === currentDay && isAfter(now, endDateTime);
+
+      const timing: PeriodTiming = {
+        number: (item.periodNumber || 0) as PeriodNumber,
+        startTime: item.startTime,
+        endTime: item.endTime
+      };
+
       items.push({
         type: 'period',
-        time: timing.startTime,
+        id: item.id,
+        time: item.startTime,
         timing,
-        info: selectedDayData[timing.number],
-        isActive: selectedDay === currentDay && isActivePeriod(timing, now),
-        isPast: selectedDay === currentDay && isPastPeriod(timing, now),
-        pendingWorksCount: selectedDayData[timing.number] 
-          ? (cceData[selectedDayData[timing.number]!.subject] || []).filter(w => !w.completed).length 
+        info: item.subject ? { subject: item.subject, teacher: item.teacher, classroom: item.classroom } : undefined,
+        isActive,
+        isPast,
+        isCustom: item.isCustom,
+        isCanceled: item.isCanceled,
+        pendingWorksCount: item.subject 
+          ? (cceData[item.subject] || []).filter(w => !w.completed).length 
           : 0,
-        hasTaskConflict: selectedDayTasks.some(t => !t.completed && areTimesOverlapping(t.startTime, t.endTime, timing.startTime, timing.endTime, now))
+        hasTaskConflict: selectedDayTasks.some(t => 
+          !t.completed && 
+          areTimesOverlapping(t.startTime, t.endTime, item.startTime24, item.endTime24, now)
+        )
       });
     });
 
@@ -271,7 +516,7 @@ function App() {
     });
 
     return items.sort((a, b) => getMinutesSinceMidnight(a.time) - getMinutesSinceMidnight(b.time));
-  }, [timetable, selectedDayData, selectedDayTasks, currentDay, selectedDay, now, cceData]);
+  }, [resolvedSchedule, selectedDayTasks, currentDay, selectedDay, now, cceData, selectedDate]);
 
   const searchResults = useMemo(() => {
     if (!searchQuery.trim() || !timetable) return [];
@@ -416,6 +661,7 @@ function App() {
             <button 
               onClick={() => setIsSearchOpen(true)}
               className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 transition-all active:scale-95"
+              title="Search Schedule"
             >
               <Search size={20} strokeWidth={2.5} />
             </button>
@@ -427,6 +673,7 @@ function App() {
                   ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 border-slate-900 dark:border-white" 
                   : "bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800"
               )}
+              title="Updates & Info"
             >
               {isAndroid ? <Download size={20} strokeWidth={2.5} /> : <Bell size={20} strokeWidth={2.5} />}
               {((isNotificationHubActive && !isAndroid) || (updateInfo?.isAvailable)) && (
@@ -437,12 +684,11 @@ function App() {
               )}
             </button>
             <button 
-              onClick={() => {
-                if (confirm('Erase all timetable data?')) setTimetable(null);
-              }}
-              className="p-3 rounded-2xl bg-red-50 dark:bg-red-900/20 text-red-500 border border-red-100 dark:border-red-900/40 transition-all active:scale-95"
+              onClick={() => setIsSettingsOpen(true)}
+              className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 transition-all active:scale-95"
+              title="Open Settings"
             >
-              <Trash2 size={20} strokeWidth={2.5} />
+              <Settings size={20} strokeWidth={2.5} />
             </button>
           </div>
         </div>
@@ -475,46 +721,166 @@ function App() {
             </button>
           ))}
         </div>
+
+        {/* View Switcher Tabs */}
+        <div className="max-w-2xl mx-auto px-4 flex border-t border-slate-100 dark:border-slate-900">
+          <button
+            onClick={() => setActiveTab('daily')}
+            className={cn(
+              "flex-1 py-3 text-[11px] font-black uppercase tracking-widest text-center border-b-2 transition-all",
+              activeTab === 'daily'
+                ? "border-primary-500 text-slate-900 dark:text-white"
+                : "border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600"
+            )}
+          >
+            Daily
+          </button>
+          <button
+            onClick={() => setActiveTab('grid')}
+            className={cn(
+              "flex-1 py-3 text-[11px] font-black uppercase tracking-widest text-center border-b-2 transition-all",
+              activeTab === 'grid'
+                ? "border-primary-500 text-slate-900 dark:text-white"
+                : "border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600"
+            )}
+          >
+            Weekly Grid
+          </button>
+          <button
+            onClick={() => setActiveTab('stats')}
+            className={cn(
+              "flex-1 py-3 text-[11px] font-black uppercase tracking-widest text-center border-b-2 transition-all",
+              activeTab === 'stats'
+                ? "border-primary-500 text-slate-900 dark:text-white"
+                : "border-transparent text-slate-400 dark:text-slate-500 hover:text-slate-600"
+            )}
+          >
+            Analytics
+          </button>
+        </div>
       </header>
 
-      {/* Timetable List */}
-      <main className="max-w-2xl mx-auto px-4 py-8 flex-1 space-y-10">
-        <TaskManager 
-          date={selectedDate}
-          tasks={selectedDayTasks}
-          timetable={timetable || {}}
-          onAddTask={handleAddTask}
-          onDeleteTask={(id) => handleDeleteTask(selectedDate, id)}
-          onToggleTask={(id) => handleToggleTask(selectedDate, id)}
-          onViewAll={() => setIsAllTasksOpen(true)}
-        />
+      {/* Main Container */}
+      <main className="max-w-2xl mx-auto px-4 py-8 flex-1 space-y-10 w-full">
+        {activeTab === 'daily' && (
+          <>
+            <TaskManager 
+              date={selectedDate}
+              tasks={selectedDayTasks}
+              timetable={timetable || {}}
+              onAddTask={handleAddTask}
+              onDeleteTask={(id) => handleDeleteTask(selectedDate, id)}
+              onToggleTask={(id) => handleToggleTask(selectedDate, id)}
+              onViewAll={() => setIsAllTasksOpen(true)}
+            />
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Daily Schedule</h3>
-          </div>
-          {combinedSchedule.map((item) => (
-            item.type === 'period' ? (
-              <PeriodCard
-                key={`period-${item.timing.number}`}
-                timing={item.timing}
-                info={item.info}
-                isActive={item.isActive}
-                isPast={item.isPast}
-                onOpenCCE={setSelectedSubjectForCCE}
-                pendingWorksCount={item.pendingWorksCount}
-                hasTaskConflict={item.hasTaskConflict}
-              />
-            ) : (
-              <TaskCard 
-                key={`task-${item.task.id}`}
-                task={item.task}
-                onDelete={() => handleDeleteTask(selectedDate, item.task.id)}
-                onToggle={() => handleToggleTask(selectedDate, item.task.id)}
-              />
-            )
-          ))}
-        </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Daily Schedule</h3>
+                <button
+                  onClick={() => {
+                    setEditingCellInfo({ dateStr: selectedDate, isCustom: true });
+                    setIsEditPeriodOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800 text-[10px] font-black uppercase tracking-widest transition-colors border border-slate-200/50 dark:border-slate-800/50"
+                >
+                  <Plus size={12} strokeWidth={3} />
+                  Add Class
+                </button>
+              </div>
+
+              {combinedSchedule.length > 0 ? (
+                combinedSchedule.map((item) => (
+                  item.type === 'period' ? (
+                    <PeriodCard
+                      key={`period-${item.id}`}
+                      timing={item.timing}
+                      info={item.info}
+                      isActive={item.isActive}
+                      isPast={item.isPast}
+                      onOpenCCE={setSelectedSubjectForCCE}
+                      pendingWorksCount={item.pendingWorksCount}
+                      hasTaskConflict={item.hasTaskConflict}
+                      isCustom={item.isCustom}
+                      isCanceled={item.isCanceled}
+                      googleCalendarUrl={item.info?.subject ? generateGoogleCalendarUrl(
+                        item.info.subject,
+                        item.timing.startTime,
+                        item.timing.endTime,
+                        selectedDate,
+                        item.info.classroom,
+                        item.info.teacher ? `Teacher: ${item.info.teacher}` : '',
+                        true
+                      ) : undefined}
+                      onClick={() => {
+                        setEditingCellInfo({
+                          dateStr: selectedDate,
+                          periodId: item.id,
+                          subject: item.info?.subject,
+                          teacher: item.info?.teacher,
+                          classroom: item.info?.classroom,
+                          startTime: item.isCustom ? item.timing.startTime : undefined,
+                          endTime: item.isCustom ? item.timing.endTime : undefined,
+                          isCustom: item.isCustom
+                        });
+                        setIsEditPeriodOpen(true);
+                      }}
+                    />
+                  ) : (
+                    <TaskCard 
+                      key={`task-${item.task.id}`}
+                      task={item.task}
+                      googleCalendarUrl={generateGoogleCalendarUrl(
+                        item.task.title,
+                        item.task.startTime,
+                        item.task.endTime,
+                        selectedDate,
+                        undefined,
+                        'Personal Task'
+                      )}
+                      onDelete={() => handleDeleteTask(selectedDate, item.task.id)}
+                      onToggle={() => handleToggleTask(selectedDate, item.task.id)}
+                    />
+                  )
+                ))
+              ) : (
+                <div className="text-center py-20 bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-800">
+                  <p className="text-slate-400 font-black italic">No classes or tasks scheduled for today</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {activeTab === 'grid' && (
+          <WeeklyGridView 
+            timetable={timetable} 
+            onCellClick={(dayName, periodNumber, cellDate) => {
+              setSelectedDay(dayName);
+              const resolved = getScheduleForDate(cellDate, timetable, weeklyCustomPeriods, timetableOverrides);
+              const matched = resolved.find(it => it.periodNumber === periodNumber);
+
+              setEditingCellInfo({
+                dateStr: cellDate,
+                periodId: matched ? matched.id : `period-${periodNumber}`,
+                subject: matched?.subject,
+                teacher: matched?.teacher,
+                classroom: matched?.classroom,
+                isCustom: false
+              });
+              setIsEditPeriodOpen(true);
+            }}
+          />
+        )}
+
+        {activeTab === 'stats' && (
+          <AnalyticsView 
+            timetable={timetable}
+            weeklyCustomPeriods={weeklyCustomPeriods}
+            cceData={cceData}
+            taskData={taskData}
+          />
+        )}
       </main>
 
       {/* Footer */}
@@ -590,6 +956,7 @@ function App() {
           </div>
         </div>
       )}
+      
       {/* All Tasks Modal */}
       {isAllTasksOpen && (
         <AllTasksModal 
@@ -613,9 +980,48 @@ function App() {
         />
       )}
 
+      {/* Edit Period Modal */}
+      {isEditPeriodOpen && editingCellInfo && (
+        <EditPeriodModal
+          isOpen={isEditPeriodOpen}
+          onClose={() => {
+            setIsEditPeriodOpen(false);
+            setEditingCellInfo(null);
+          }}
+          dateStr={editingCellInfo.dateStr}
+          initialPeriodId={editingCellInfo.periodId}
+          initialSubject={editingCellInfo.subject}
+          initialTeacher={editingCellInfo.teacher}
+          initialClassroom={editingCellInfo.classroom}
+          initialStartTime={editingCellInfo.startTime}
+          initialEndTime={editingCellInfo.endTime}
+          initialIsCustom={editingCellInfo.isCustom}
+          onSave={handleSavePeriod}
+          onDelete={handleDeletePeriod}
+        />
+      )}
+
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+        <SettingsModal 
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          settings={appSettings}
+          onUpdateSettings={(updates) => setAppSettings(prev => ({ ...prev, ...updates }))}
+          timetable={timetable}
+          weeklyCustomPeriods={weeklyCustomPeriods}
+          overrides={timetableOverrides}
+          cceData={cceData}
+          taskData={taskData}
+          onImportAllData={handleImportAllData}
+          onClearSection={handleClearSection}
+        />
+      )}
+
       <WhatsNewModal onClose={() => {
         if (isAndroid) setIsAndroidBingoOpen(true);
       }} />
+      
       <AndroidBingoModal 
         isOpen={isAndroidBingoOpen} 
         onClose={() => setIsAndroidBingoOpen(false)} 

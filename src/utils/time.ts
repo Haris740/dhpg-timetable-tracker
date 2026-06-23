@@ -1,5 +1,5 @@
 import { parse, isWithinInterval, isAfter, format, addDays, areIntervalsOverlapping, getDay } from 'date-fns';
-import type { PeriodTiming, DayTimetable } from '../types';
+import type { PeriodTiming, DayTimetable, CustomPeriod, TimetableOverrides, SubjectInfo, TimetableData } from '../types';
 import { PERIOD_TIMINGS, DAYS_OF_WEEK } from '../types';
 
 /**
@@ -139,3 +139,164 @@ export const getScheduleConflicts = (
     areTimesOverlapping(startTime, endTime, period.startTime, period.endTime, referenceDate)
   );
 };
+
+/**
+ * Converts "HH:mm" 24-hour time to "hh:mm AM/PM" 12-hour time
+ */
+export const format24To12 = (time24: string): string => {
+  if (!time24) return "";
+  const [hourStr, minStr] = time24.split(":");
+  const hour = parseInt(hourStr, 10);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  const hourFormatted = hour12.toString().padStart(2, "0");
+  return `${hourFormatted}:${minStr} ${ampm}`;
+};
+
+/**
+ * Converts "hh:mm AM/PM" 12-hour time to "HH:mm" 24-hour time
+ */
+export const format12To24 = (time12: string): string => {
+  if (!time12) return "";
+  try {
+    const date = parse(time12, 'hh:mm a', new Date());
+    return format(date, 'HH:mm');
+  } catch (e) {
+    return time12;
+  }
+};
+
+export interface DailyScheduleItem {
+  id: string; // "period-1", "period-2", or custom ID
+  subject: string;
+  teacher?: string;
+  classroom?: string;
+  startTime: string; // "07:35 AM"
+  endTime: string;   // "08:25 AM"
+  startTime24: string; // "07:35"
+  endTime24: string;   // "08:25"
+  periodNumber?: number; // defined if standard period
+  isCustom: boolean;
+  isCanceled: boolean;
+}
+
+/**
+ * Merges the standard timetable, custom weekly periods, and date overrides to produce the resolved schedule for a date.
+ */
+export const getScheduleForDate = (
+  dateStr: string,
+  timetable: TimetableData | null,
+  weeklyCustomPeriods: { [day: string]: CustomPeriod[] } = {},
+  overrides: TimetableOverrides = {}
+): DailyScheduleItem[] => {
+  const dayName = getDayName(dateStr);
+  const items: DailyScheduleItem[] = [];
+
+  // 1. Standard periods 1-8
+  PERIOD_TIMINGS.forEach((timing) => {
+    const pNumStr = timing.number.toString();
+    const dateOverride = overrides[dateStr]?.periods?.[pNumStr];
+
+    let info: SubjectInfo | null | undefined = undefined;
+
+    if (dateOverride !== undefined) {
+      info = dateOverride; // can be null (canceled) or SubjectInfo
+    } else if (timetable && timetable[dayName]) {
+      info = timetable[dayName][timing.number];
+    }
+
+    if (info !== undefined) {
+      items.push({
+        id: `period-${timing.number}`,
+        subject: info ? info.subject : "",
+        teacher: info?.teacher,
+        classroom: info?.classroom,
+        startTime: timing.startTime,
+        endTime: timing.endTime,
+        startTime24: format12To24(timing.startTime),
+        endTime24: format12To24(timing.endTime),
+        periodNumber: timing.number,
+        isCustom: false,
+        isCanceled: info === null,
+      });
+    } else {
+      items.push({
+        id: `period-${timing.number}`,
+        subject: "",
+        startTime: timing.startTime,
+        endTime: timing.endTime,
+        startTime24: format12To24(timing.startTime),
+        endTime24: format12To24(timing.endTime),
+        periodNumber: timing.number,
+        isCustom: false,
+        isCanceled: false,
+      });
+    }
+  });
+
+  // 2. Weekly custom periods
+  const dayCustomPeriods = weeklyCustomPeriods[dayName] || [];
+  dayCustomPeriods.forEach((cp) => {
+    const dateOverride = overrides[dateStr]?.periods?.[cp.id];
+    const isCanceled = dateOverride === null;
+    const info = dateOverride !== undefined && dateOverride !== null ? dateOverride : cp;
+
+    items.push({
+      id: cp.id,
+      subject: isCanceled ? "" : info.subject,
+      teacher: isCanceled ? undefined : info.teacher,
+      classroom: isCanceled ? undefined : info.classroom,
+      startTime: format24To12(cp.startTime),
+      endTime: format24To12(cp.endTime),
+      startTime24: cp.startTime,
+      endTime24: cp.endTime,
+      isCustom: true,
+      isCanceled,
+    });
+  });
+
+  // 3. Temporary custom periods
+  const tempCustomPeriods = overrides[dateStr]?.customPeriods || [];
+  tempCustomPeriods.forEach((cp) => {
+    items.push({
+      id: cp.id,
+      subject: cp.subject,
+      teacher: cp.teacher,
+      classroom: cp.classroom,
+      startTime: format24To12(cp.startTime),
+      endTime: format24To12(cp.endTime),
+      startTime24: cp.startTime,
+      endTime24: cp.endTime,
+      isCustom: true,
+      isCanceled: false,
+    });
+  });
+
+  // Sort chronologically by start time
+  return items.sort((a, b) => getMinutesSinceMidnight(a.startTime24) - getMinutesSinceMidnight(b.startTime24));
+};
+
+/**
+ * Finds the currently active class in the schedule.
+ */
+export const getCurrentClass = (now: Date, schedule: DailyScheduleItem[]): DailyScheduleItem | undefined => {
+  return schedule.find(item => {
+    if (item.isCanceled || !item.subject) return false;
+    const start = parse(item.startTime24, 'HH:mm', now);
+    const end = parse(item.endTime24, 'HH:mm', now);
+    return isWithinInterval(now, { start, end });
+  });
+};
+
+/**
+ * Finds the next active class in the schedule.
+ */
+export const getNextClass = (now: Date, schedule: DailyScheduleItem[]): DailyScheduleItem | undefined => {
+  const upcoming = schedule.filter(item => {
+    if (item.isCanceled || !item.subject) return false;
+    const start = parse(item.startTime24, 'HH:mm', now);
+    return isAfter(start, now);
+  });
+  return upcoming[0];
+};
+

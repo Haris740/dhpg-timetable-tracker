@@ -72,3 +72,30 @@ export const PERIOD_TIMINGS: PeriodTiming[] = [
 ];
 
 export const DAYS_OF_WEEK = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+export interface CustomPeriod {
+  id: string;
+  subject: string;
+  teacher?: string;
+  classroom?: string;
+  startTime: string; // "HH:mm" 24h format for standard HTML time input
+  endTime: string;   // "HH:mm" 24h format
+}
+
+export interface DateOverride {
+  // Key is period number (as string) or custom period ID
+  periods: {
+    [key: string]: SubjectInfo | null; // null means canceled/removed on this date
+  };
+  customPeriods: CustomPeriod[];
+}
+
+export type TimetableOverrides = {
+  [dateStr: string]: DateOverride;
+};
+
+export interface AppSettings {
+  notificationsEnabled: boolean;
+  notificationOffset: number; // minutes before start
+}
+

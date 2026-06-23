@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Layout, ArrowRight, Sparkles, Monitor, SmartphoneNfc } from 'lucide-react';
+import { ArrowRight, Sparkles, Monitor, Calendar, Edit3, BarChart2, Grid } from 'lucide-react';
 import { cn } from '../utils/cn';
 
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.1.0';
 
 export const WhatsNewModal: React.FC<{ onClose?: () => void }> = ({ onClose }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -25,28 +25,28 @@ export const WhatsNewModal: React.FC<{ onClose?: () => void }> = ({ onClose }) =
 
   const features = [
     {
-      icon: Sparkles,
-      title: "Premium Dark Glass UI",
-      description: "A complete visual overhaul with stunning translucent aesthetics and smoother animations.",
+      icon: Edit3,
+      title: "Schedule Editor & Overrides",
+      description: "Edit periods permanently in the weekly template or set temporary class overrides for specific dates.",
       color: "bg-slate-900"
     },
     {
-      icon: SmartphoneNfc,
-      title: "Android Native Widgets",
-      description: "4 brand new high-performance widgets. Track your classes and tasks from your home screen.",
-      color: "bg-green-500"
+      icon: Calendar,
+      title: "Google Calendar Sync",
+      description: "Quick-add classes with weekly repeat patterns or sync everything at once via local iCalendar (.ics) exports.",
+      color: "bg-blue-600"
     },
     {
-      icon: Bell,
-      title: "Live 'NOW' Highlighting",
-      description: "Always know where you should be with real-time period tracking and visual cues.",
-      color: "bg-blue-500"
+      icon: Grid,
+      title: "Weekly Grid View",
+      description: "Check your complete weekly schedule and color-coded class distributions in a unified interactive grid.",
+      color: "bg-purple-600"
     },
     {
-      icon: Layout,
-      title: "CCE & Tasks Hub",
-      description: "Dedicated sections to manage all your pending assignments and personal tasks seamlessly.",
-      color: "bg-purple-500"
+      icon: BarChart2,
+      title: "Study Analytics & Stats",
+      description: "View weekly class hours distribution, task completion metrics, and pending CCE assignments breakdown.",
+      color: "bg-emerald-600"
     }
   ];
 
@@ -66,10 +66,10 @@ export const WhatsNewModal: React.FC<{ onClose?: () => void }> = ({ onClose }) =
           <div className="relative z-10 space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-500/20 text-primary-400 text-[10px] font-black uppercase tracking-widest mb-2 border border-primary-500/30">
               <Sparkles size={12} />
-              MAJOR UPDATE v3.0
+              NEW UPDATE v3.1
             </div>
             <h2 className="text-4xl font-black text-white dark:text-slate-900 leading-tight uppercase italic tracking-tighter">
-              THE BIG ONE <br /> IS HERE
+              CALENDAR &<br />EDITOR ACTIVE
             </h2>
           </div>
         </div>

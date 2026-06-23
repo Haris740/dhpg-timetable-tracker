@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Clock, Trash2, CheckCircle2, AlertTriangle, CalendarRange } from 'lucide-react';
 import { cn } from '../utils/cn';
 import type { PersonalTask } from '../types';
 
@@ -7,12 +7,14 @@ interface TaskCardProps {
   task: PersonalTask;
   onDelete: () => void;
   onToggle: () => void;
+  googleCalendarUrl?: string;
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({
   task,
   onDelete,
-  onToggle
+  onToggle,
+  googleCalendarUrl
 }) => {
   return (
     <div className={cn(
@@ -60,12 +62,27 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           </div>
         </div>
       </div>
-      <button 
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
-        className="p-3 rounded-2xl bg-red-50 dark:bg-red-900/10 text-red-500 border border-red-100 dark:border-red-900/20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white active:scale-90"
-      >
-        <Trash2 size={18} strokeWidth={2.5} />
-      </button>
+      
+      <div className="flex items-center gap-2">
+        {googleCalendarUrl && !task.completed && (
+          <a 
+            href={googleCalendarUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="p-3 rounded-2xl bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 active:scale-90 shadow-sm transition-all"
+            title="Add to Google Calendar"
+          >
+            <CalendarRange size={18} strokeWidth={2.5} />
+          </a>
+        )}
+        <button 
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          className="p-3 rounded-2xl bg-red-50 dark:bg-red-900/10 text-red-500 border border-red-100 dark:border-red-900/20 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white active:scale-90"
+        >
+          <Trash2 size={18} strokeWidth={2.5} />
+        </button>
+      </div>
     </div>
   );
 };

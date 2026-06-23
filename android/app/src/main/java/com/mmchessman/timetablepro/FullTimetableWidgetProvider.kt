@@ -71,17 +71,6 @@ class FullTimetableWidgetProvider : AppWidgetProvider() {
         val targetCal = Calendar.getInstance()
         targetCal.add(Calendar.DAY_OF_YEAR, dayOffset)
         
-        // Auto-advance logic for today if classes are over
-        if (dayOffset == 0) {
-            val isOver = checkIfClassesAreOverToday(context, targetCal)
-            if (isOver) {
-                targetCal.add(Calendar.DAY_OF_YEAR, 1)
-                prefs.edit().putInt("day_offset_$appWidgetId", 1).apply()
-                // Update views to reflect the newly calculated offset via notifyAppWidgetViewDataChanged
-                appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_list_view)
-            }
-        }
-        
         val format = SimpleDateFormat("EEEE", Locale.US)
         var dayString = format.format(targetCal.time).uppercase()
         
@@ -125,49 +114,5 @@ class FullTimetableWidgetProvider : AppWidgetProvider() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
     }
-
-    private fun checkIfClassesAreOverToday(context: Context, cal: Calendar): Boolean {
-        // Find last class logic
-        try {
-            var timetableJson: String? = null
-            val possibleFiles = arrayOf("CapacitorStorage", context.packageName + "_preferences", "storage")
-            for (fileName in possibleFiles) {
-                val prefs = context.getSharedPreferences(fileName, Context.MODE_PRIVATE)
-                timetableJson = prefs.getString("timetable", null) ?: prefs.getString("_cap_timetable", null)
-                if (timetableJson != null) break
-            }
-            if (timetableJson == null) return false
-            
-            val timetable = JSONObject(timetableJson)
-            val currentDay = SimpleDateFormat("EEEE", Locale.US).format(cal.time)
-            val dayData = timetable.optJSONObject(currentDay) ?: return true // No classes today
-            
-            var lastPeriod = 0
-            for (i in 1..8) {
-                if (dayData.has(i.toString())) {
-                    lastPeriod = i
-                }
-            }
-            
-            if (lastPeriod == 0) return true
-            
-            val timings = arrayOf(
-                intArrayOf(455, 505),
-                intArrayOf(530, 580),
-                intArrayOf(585, 635),
-                intArrayOf(640, 690),
-                intArrayOf(695, 745),
-                intArrayOf(750, 795),
-                intArrayOf(860, 910),
-                intArrayOf(915, 965)
-            )
-            
-            val endTimeMinutes = timings[lastPeriod - 1][1]
-            val currentMinutes = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
-            
-            return currentMinutes > endTimeMinutes
-        } catch (e: Exception) {
-            return false
-        }
-    }
 }
+

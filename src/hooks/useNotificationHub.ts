@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { PERIOD_TIMINGS } from '../types';
-import type { TimetableData, TaskData } from '../types';
-import { timeStringToDate, formatISODate } from '../utils/time';
+import type { TimetableData, TaskData, CustomPeriod, TimetableOverrides, AppSettings } from '../types';
+import { formatISODate, getScheduleForDate } from '../utils/time';
+import { parse } from 'date-fns';
 
-export function useNotificationHub(timetable: TimetableData | null, taskData: TaskData = {}) {
+export function useNotificationHub(
+  timetable: TimetableData | null,
+  weeklyCustomPeriods: { [day: string]: CustomPeriod[] } = {},
+  timetableOverrides: TimetableOverrides = {},
+  taskData: TaskData = {},
+  settings: AppSettings = { notificationsEnabled: true, notificationOffset: 0 }
+) {
   const [permission, setPermission] = useState<NotificationPermission>(
     typeof Notification !== 'undefined' ? Notification.permission : 'default'
   );
@@ -17,7 +23,12 @@ export function useNotificationHub(timetable: TimetableData | null, taskData: Ta
   };
 
   useEffect(() => {
-    if ((!timetable && Object.keys(taskData).length === 0) || typeof Notification === 'undefined' || permission !== 'granted') {
+    if (
+      (!timetable && Object.keys(taskData).length === 0) || 
+      typeof Notification === 'undefined' || 
+      permission !== 'granted' || 
+      !settings.notificationsEnabled
+    ) {
       clearAllTimers();
       return;
     }
@@ -26,36 +37,43 @@ export function useNotificationHub(timetable: TimetableData | null, taskData: Ta
       clearAllTimers();
       
       const now = new Date();
-      const currentDay = new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(now);
-      const todaysSchedule = timetable?.[currentDay];
-      const todaysTasks = taskData[formatISODate(now)] || [];
+      const todayDateStr = formatISODate(now);
+      const resolvedSchedule = getScheduleForDate(todayDateStr, timetable, weeklyCustomPeriods, timetableOverrides);
+      const todaysTasks = taskData[todayDateStr] || [];
       
-      console.log(`[NotificationHub] Checking schedule for ${currentDay}... permission: ${permission}`);
+      console.log(`[NotificationHub] Checking schedule for ${todayDateStr}... permission: ${permission}, offset: ${settings.notificationOffset}`);
       
-      // 1. Schedule Class Periods
-      if (todaysSchedule) {
-        Object.entries(todaysSchedule).forEach(([periodNum, info]) => {
-          const timing = PERIOD_TIMINGS.find(t => t.number === parseInt(periodNum));
-          if (!timing || !info) return;
+      // 1. Schedule Class Periods (Standard and Custom)
+      resolvedSchedule.forEach(item => {
+        if (item.isCanceled || !item.subject) return;
 
-          const startTime = timeStringToDate(timing.startTime, now);
-          const diff = startTime.getTime() - now.getTime();
+        const startTime = parse(`${todayDateStr} ${item.startTime24}`, 'yyyy-MM-dd HH:mm', now);
+        // Calculate notification trigger time based on offset minutes
+        const notificationTime = new Date(startTime.getTime() - (settings.notificationOffset || 0) * 60 * 1000);
+        const diff = notificationTime.getTime() - now.getTime();
 
-          if (diff > 0) {
-            console.log(`[NotificationHub] Scheduling Class "${info.subject}" in ${Math.round(diff/1000)}s`);
-            const timer = window.setTimeout(() => {
-              showNotification(`Class: ${info.subject}`, `Class starting in ${info.classroom || 'your room'} with ${info.teacher || 'your teacher'}.`, `class-${info.subject}`);
-            }, diff);
-            timersRef.current.push(timer);
-          }
-        });
-      }
+        if (diff > 0) {
+          console.log(`[NotificationHub] Scheduling Class "${item.subject}" in ${Math.round(diff/1000)}s`);
+          const timer = window.setTimeout(() => {
+            const body = settings.notificationOffset > 0
+              ? `Starting in ${settings.notificationOffset} mins in ${item.classroom || 'your room'} with ${item.teacher || 'your teacher'}.`
+              : `Starting now in ${item.classroom || 'your room'} with ${item.teacher || 'your teacher'}.`;
+            
+            showNotification(
+              `Class Alert: ${item.subject}`, 
+              body, 
+              `class-${item.id}`
+            );
+          }, diff);
+          timersRef.current.push(timer);
+        }
+      });
 
-      // 2. Schedule Personal Tasks
+      // 2. Schedule Personal Tasks (Notify at exact task start)
       todaysTasks.forEach(task => {
         if (task.completed) return;
 
-        const startTime = timeStringToDate(task.startTime, now);
+        const startTime = parse(`${todayDateStr} ${task.startTime}`, 'yyyy-MM-dd HH:mm', now);
         const diff = startTime.getTime() - now.getTime();
 
         if (diff > 0) {
@@ -85,7 +103,7 @@ export function useNotificationHub(timetable: TimetableData | null, taskData: Ta
     timersRef.current.push(midnightTimer);
 
     return () => clearAllTimers();
-  }, [timetable, permission]);
+  }, [timetable, weeklyCustomPeriods, timetableOverrides, taskData, settings, permission]);
 
   function clearAllTimers() {
     timersRef.current.forEach(timer => {
@@ -118,7 +136,7 @@ export function useNotificationHub(timetable: TimetableData | null, taskData: Ta
   }
 
   return {
-    isActive: permission === 'granted' && !!timetable,
+    isActive: permission === 'granted' && !!timetable && settings.notificationsEnabled,
     permission,
     refreshPermission,
     requestPermission: async () => {
@@ -131,4 +149,5 @@ export function useNotificationHub(timetable: TimetableData | null, taskData: Ta
     }
   };
 }
+
 
