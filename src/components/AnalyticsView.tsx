@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { BarChart2, BookOpen, CheckSquare, ClipboardList, Clock } from 'lucide-react';
 import type { TimetableData, CCEData, TaskData, CustomPeriod } from '../types';
-import { DAYS_OF_WEEK } from '../types';
 import { getSubjectColor, getColorClasses } from '../utils/colors';
 import { cn } from '../utils/cn';
 
@@ -24,8 +23,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({
     const counts: Record<string, number> = {};
     if (!timetable) return [];
 
-    // Count standard periods (50 mins each, so 50/60 = ~0.83 hours per slot)
-    const weekDays = DAYS_OF_WEEK.filter(d => d !== 'Sunday');
+    const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday', 'Sunday'];
     weekDays.forEach(day => {
       const dayData = timetable[day] || {};
       Object.values(dayData).forEach(info => {

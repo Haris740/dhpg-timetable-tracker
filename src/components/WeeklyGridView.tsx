@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import type { TimetableData } from '../types';
-import { PERIOD_TIMINGS, DAYS_OF_WEEK } from '../types';
+import { PERIOD_TIMINGS } from '../types';
 import { getSubjectColor, getColorClasses } from '../utils/colors';
 import { getDayName, getDateOfNextDay, formatISODate } from '../utils/time';
 import { cn } from '../utils/cn';
@@ -14,8 +14,8 @@ interface WeeklyGridViewProps {
 export const WeeklyGridView: React.FC<WeeklyGridViewProps> = ({ timetable, onCellClick }) => {
   const todayName = getDayName(new Date());
 
-  // Filter out Sunday since it usually doesn't have regular schedules, but let's keep Monday-Saturday
-  const weekDays = DAYS_OF_WEEK.filter(d => d !== 'Sunday');
+  // Display Monday-Sunday in chronological order, excluding Friday as requested
+  const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Saturday', 'Sunday'];
 
   return (
     <div className="w-full space-y-6 animate-in fade-in duration-500">
